@@ -49,7 +49,7 @@ This project was developed by the author with AI-assisted coding tools.
 - Tailwind CSS  
 - xlsx-js-style  
 - canvas-confetti  
-- Babel (if applicable)
+- Babel Standalone
 
 All third-party libraries are used under their respective open-source licenses (e.g., MIT License).  
 All rights belong to their original authors.
