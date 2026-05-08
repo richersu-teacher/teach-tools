@@ -46,10 +46,13 @@ This project was developed by the author with AI-assisted coding tools.
 
 ### Third-party Libraries
 
-- Tailwind CSS  
-- xlsx-js-style  
-- canvas-confetti  
+- Tailwind CSS
+- React
+- ReactDOM
 - Babel Standalone
+- xlsx-js-style
+- canvas-confetti
+- Google Fonts
 
 All third-party libraries are used under their respective open-source licenses (e.g., MIT License).  
 All rights belong to their original authors.
