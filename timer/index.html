@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多功能計時器正式版V3 (506指定特別版 - 瑞士精品工藝升級V12 - 極致光暈)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+    <!-- Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    
+    <style>
+        body {
+            background-color: #f3f4f6;
+            color: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        /* 自定義跑道進度條動畫 */
+        .progress-ring__path {
+            transition: stroke-dashoffset 0.1s linear, stroke 0.5s ease;
+            transform-origin: 50% 50%;
+        }
+        /* 底層增加一點立體陰影，讓高亮環浮起來 */
+        .progress-base {
+            filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
+        }
+        
+        .digital-font {
+            font-variant-numeric: tabular-nums;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 700;
+        }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* 配色選單收折動畫 */
+        .theme-menu-enter {
+            opacity: 0;
+            transform: scale(0.9) translateX(-10px);
+        }
+        .theme-menu-enter-active {
+            opacity: 1;
+            transform: scale(1) translateX(0);
+            transition: opacity 200ms, transform 200ms;
+        }
+
+        /* 3D 透視容器 */
+        .perspective-container {
+            perspective: 1000px;
+        }
+
+        /* 狀態文字：上下翻頁轉場動畫 */
+        .text-flip {
+            animation: flipIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            transform-origin: center center;
+            backface-visibility: hidden;
+            
+            /* 全域蝕刻文字效果 */
+            text-shadow: 
+                0 -2px 2px rgba(0,0,0,1),   /* 頂部壓深黑影 */
+                0 2px 4px rgba(0,0,0,0.5),  /* 整體投影 */
+                0 1px 0 rgba(255,255,255,0.25); /* 底部銳利反光 */
+        }
+
+        @keyframes flipIn {
+            0% {
+                transform: rotateX(-90deg);
+                opacity: 0;
+            }
+            100% {
+                transform: rotateX(0deg);
+                opacity: 1;
+            }
+        }
+
+        /* 延長選單向右展開動畫 */
+        .extend-menu-enter {
+            opacity: 0;
+            transform: scale(0.9) translateX(-10px);
+        }
+        .extend-menu-enter-active {
+            opacity: 1;
+            transform: scale(1) translateX(0);
+            transition: opacity 200ms, transform 200ms;
+        }
+
+        /* =========================================
+           👑 瑞士精品工藝級 V12 (Ultimate Halo Edition)
+           ========================================= */
+
+        /* 1. 物理深淵陰影 & 橫向地平線光澤 (Horizon Line) - 保持 V9 質感 */
+        .rolling-cell {
+            height: 1em;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: bottom;
+            position: relative;
+            
+            /* 橫向光澤 (Horizon Line) - 模擬圓柱體受光 */
+            background-image: 
+                linear-gradient(to bottom, 
+                    rgba(0,0,0,0.8) 0%,       
+                    rgba(0,0,0,0.1) 40%,      
+                    rgba(255,255,255,0.3) 50%, 
+                    rgba(0,0,0,0.2) 55%,      
+                    rgba(0,0,0,0.7) 100%      
+                );
+
+            /* 物理內陰影 */
+            box-shadow: 
+                inset 0 10px 10px -5px rgba(0,0,0,0.9), 
+                inset 0 -10px 10px -5px rgba(0,0,0,0.9),
+                inset 0 1px 0 rgba(255,255,255,0.4),
+                0 4px 6px rgba(0,0,0,0.5);
+
+            border-radius: 0.15em;
+            margin: 0 0.05em;
+        }
+
+        /* 2. 藍寶石玻璃質感 */
+        .rolling-cell::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            border-radius: 0.15em;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.15) 0%, transparent 45%, transparent 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        /* 3. 動畫參數調整 */
+        @keyframes slideDown {
+            from { transform: translateY(-50%); } 
+            to { transform: translateY(0%); }     
+        }
+
+        .rolling-track-anim {
+            display: flex;
+            flex-direction: column;
+            animation: slideDown 0.85s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+        }
+
+        /* 4. 重刀刻工藝字樣 (Deep Etch Typography) */
+        .digit {
+            height: 1em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            
+            transition: color 0.5s ease;
+            
+            /* 蝕刻切削質感 */
+            text-shadow: 
+                0 -2px 2px rgba(0,0,0,1),   
+                0 2px 4px rgba(0,0,0,0.5),  
+                0 1px 0 rgba(255,255,255,0.25); 
+        }
+        
+        /* [新增] 彈出視窗動畫 */
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 200ms, transform 200ms;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // [錯誤邊界] 防止崩潰白屏
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false };
+            }
+            static getDerivedStateFromError(error) { return { hasError: true }; }
+            componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+            render() {
+                if (this.state.hasError) {
+                    return <div className="flex h-screen items-center justify-center bg-gray-900 text-white flex-col gap-4"><h1 className="text-3xl font-bold">⚠️ 程式發生錯誤</h1><button onClick={()=>window.location.reload()} className="bg-blue-600 px-4 py-2 rounded">重新整理</button></div>;
+                }
+                return this.props.children; 
+            }
+        }
+
+        // --- 全域配色主題 (保持 V4/V9 夜光漆色) ---
+        const THEMES = {
+            DAY: { 
+                id: 'DAY', name: '日間', icon: '🌞', 
+                bgTop: 'bg-amber-200', textTop: 'text-slate-800', bgMain: 'bg-slate-800', bgStatus: 'bg-slate-700/90', bgMedia: 'bg-slate-900/95', border: 'border-amber-400', 
+                digitBg: '#111111', // 耀石黑
+                colors: { start: '#4ade80', half: '#facc15', end: '#ff4d4d' } 
+            },
+            NIGHT: { 
+                id: 'NIGHT', name: '夜間', icon: '🌙', 
+                bgTop: 'bg-slate-950', textTop: 'text-gray-400', bgMain: 'bg-black', bgStatus: 'bg-slate-900/90', bgMedia: 'bg-black/95', border: 'border-slate-800', 
+                digitBg: '#5c2e21', // 赤金 (Red Gold)
+                colors: { start: '#4ade80', half: '#facc15', end: '#ff4d4d' } 
+            },
+            PINK: { 
+                id: 'PINK', name: '粉色', icon: '🌸', 
+                bgTop: 'bg-amber-200', textTop: 'text-rose-900', bgMain: 'bg-[#6d122e]', bgStatus: 'bg-[#831843]', bgMedia: 'bg-[#500724]', border: 'border-pink-900/10', 
+                digitBg: '#5e2c3a', // 玫瑰金
+                colors: { start: '#f9a8d4', half: '#facc15', end: '#fb7185' } 
+            },
+            OCEAN: { 
+                id: 'OCEAN', name: '海洋', icon: '🌊', 
+                bgTop: 'bg-amber-200', textTop: 'text-cyan-900', bgMain: 'bg-[#0e3c52]', bgStatus: 'bg-[#155e75]', bgMedia: 'bg-[#083344]', border: 'border-cyan-900/10', 
+                digitBg: '#111111', // 耀石黑
+                colors: { start: '#67e8f9', half: '#818cf8', end: '#fb923c' } 
+            },
+            FOREST: { 
+                id: 'FOREST', name: '森林', icon: '🌲', 
+                bgTop: 'bg-amber-200', textTop: 'text-emerald-900', bgMain: 'bg-[#064e3b]', bgStatus: 'bg-[#065f46]', bgMedia: 'bg-[#022c22]', border: 'border-emerald-900/10', 
+                digitBg: '#111111', // 耀石黑
+                colors: { start: '#34d399', half: '#facc15', end: '#f87171' } 
+            }
+        };
+
+        // --- 智慧單向滾輪元件 ---
+        const RollingDigit = ({ value, baseColor, textColor }) => {
+            const safeValue = value === undefined || value === null ? '' : String(value);
+            const isNumber = !isNaN(parseInt(safeValue, 10));
+
+            const [curr, setCurr] = useState(safeValue);
+            const [prev, setPrev] = useState(safeValue);
+            const [animate, setAnimate] = useState(false);
+            const lastValue = useRef(safeValue);
+
+            const style = { 
+                backgroundColor: baseColor || '#111111',
+                color: textColor || '#f1f5f9'
+            };
+
+            useEffect(() => {
+                if (safeValue !== lastValue.current) {
+                    setPrev(lastValue.current);
+                    setCurr(safeValue);
+                    setAnimate(true);
+                    
+                    const timer = setTimeout(() => {
+                        setAnimate(false);
+                    }, 850); 
+                    
+                    lastValue.current = safeValue;
+                    return () => clearTimeout(timer);
+                }
+            }, [safeValue]);
+
+            if (!animate || !isNumber) {
+                 return (
+                    <div className="rolling-cell" style={style}>
+                        <div className="digit">{isNumber ? curr : safeValue}</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="rolling-cell" style={style}>
+                    <div className="rolling-track-anim">
+                        <div className="digit">{curr}</div>
+                        <div className="digit">{prev}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        const useSpeech = () => {
+            const utteranceRef = useRef(null);
+            const speak = (text) => {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'zh-TW';
+                    utteranceRef.current = utterance;
+                    utterance.onend = () => { utteranceRef.current = null; };
+                    utterance.onerror = (e) => { console.warn(e); utteranceRef.current = null; };
+                    window.speechSynthesis.speak(utterance);
+                }
+            };
+            return speak;
+        };
+
+        const App = () => {
+            // State
+            const [timeOffset, setTimeOffset] = useState(0); 
+            const [currentTime, setCurrentTime] = useState(new Date());
+            const [isEditingTime, setIsEditingTime] = useState(false);
+            const [editTimeVal, setEditTimeVal] = useState({ h: 0, m: 0, s: 0 });
+
+            const [mode, setMode] = useState('EXAM');
+            const [currentTheme, setCurrentTheme] = useState('NIGHT');
+            const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false); 
+
+            const [isExtendMenuOpen, setIsExtendMenuOpen] = useState(false);
+            const [extendConfirmData, setExtendConfirmData] = useState(null); 
+
+            const [isAlertCentered, setIsAlertCentered] = useState(false);
+            const [customMessagesMap, setCustomMessagesMap] = useState({
+                EXAM: { start: ["考試進行中"], half: ["考試進行中"], end: ["考試進行中"] },
+                CLASS: { start: ["活動進行中"], half: ["活動進行中"], end: ["活動進行中"] }
+            });
+            const [currentMsgIndex, setCurrentMsgIndex] = useState(0);
+            
+            const [isCustomTextMenuOpen, setIsCustomTextMenuOpen] = useState(false);
+            const [editCustomTextVal, setEditCustomTextVal] = useState("");
+            const [activeTab, setActiveTab] = useState('start'); 
+            const [tempEditingMessages, setTempEditingMessages] = useState({});
+
+            const [inputMinutes, setInputMinutes] = useState(40);
+            const [totalSeconds, setTotalSeconds] = useState(40 * 60);
+            const [remainingSeconds, setRemainingSeconds] = useState(40 * 60);
+            const [isTimerRunning, setIsTimerRunning] = useState(false);
+            const [examStatus, setExamStatus] = useState("READY");
+            
+            const [tempStatusText, setTempStatusText] = useState(null);
+            const [mediaList, setMediaList] = useState([]);
+            const [activeMedia, setActiveMedia] = useState(null); 
+            const [showVideoOverlay, setShowVideoOverlay] = useState(false);
+            const [spokenFlags, setSpokenFlags] = useState({ half: false, tenMin: false, fiveMin: false });
+
+            // Refs
+            const wakeLockRef = useRef(null);
+            const mediaRef = useRef(null);
+            const alertTimerRef = useRef(null); 
+            const requestRef = useRef();
+            const endTimeRef = useRef(0);
+            const lastClockSecRef = useRef(0); 
+            const handleExamEndRef = useRef(null);
+            const isTimerRunningRef = useRef(isTimerRunning);
+            const currentPhaseRef = useRef('start'); 
+
+            const speak = useSpeech();
+
+            // Wake Lock
+            const requestWakeLock = useCallback(async () => {
+                if ('wakeLock' in navigator) {
+                    try {
+                        const lock = await navigator.wakeLock.request('screen');
+                        wakeLockRef.current = lock;
+                    } catch (err) { console.warn(err); }
+                }
+            }, []);
+
+            const releaseWakeLock = useCallback(async () => {
+                if (wakeLockRef.current) {
+                    try {
+                        await wakeLockRef.current.release();
+                        wakeLockRef.current = null;
+                    } catch (err) { console.error(err); }
+                }
+            }, []);
+
+            // [新增] 判斷當前階段 (Start/Half/End)
+            const getCurrentPhase = () => {
+                const ratio = remainingSeconds / totalSeconds;
+                const minLeft = remainingSeconds / 60;
+                
+                if (minLeft <= 5) return 'end';
+                if (ratio <= 0.5) return 'half';
+                return 'start';
+            };
+
+            const currentPhase = getCurrentPhase();
+
+            // [新增] 取得當前應該顯示的訊息列表 (含 Fallback 邏輯)
+            const getCurrentModeMessages = () => {
+                const msgs = customMessagesMap[mode];
+                if (!msgs) return [""];
+                
+                if (currentPhase === 'end') {
+                    if (msgs.end && msgs.end.length > 0 && msgs.end[0] !== "") return msgs.end;
+                }
+                
+                if (currentPhase === 'end' || currentPhase === 'half') {
+                    if (msgs.half && msgs.half.length > 0 && msgs.half[0] !== "") return msgs.half;
+                }
+                
+                return msgs.start && msgs.start.length > 0 ? msgs.start : [mode === 'EXAM' ? "考試進行中" : "活動進行中"];
+            };
+
+            const activeMessages = getCurrentModeMessages();
+
+            useEffect(() => {
+                if (currentPhaseRef.current !== currentPhase) {
+                    setCurrentMsgIndex(0);
+                    currentPhaseRef.current = currentPhase;
+                }
+
+                let interval;
+                if (examStatus === "RUNNING" && activeMessages.length > 1) {
+                    interval = setInterval(() => {
+                        setCurrentMsgIndex(prev => (prev + 1) % activeMessages.length);
+                    }, 120000); 
+                } else {
+                    if (currentMsgIndex >= activeMessages.length) {
+                        setCurrentMsgIndex(0);
+                    }
+                }
+                return () => clearInterval(interval);
+            }, [examStatus, activeMessages, currentPhase]);
+
+            const adjustTime = (type, value) => {
+                let ms = 0;
+                if (type === 'h') ms = value * 3600000;
+                if (type === 'm') ms = value * 60000;
+                if (type === 's') ms = value * 1000;
+                const newOffset = timeOffset + ms;
+                setTimeOffset(newOffset);
+                setCurrentTime(new Date(Date.now() + newOffset));
+            };
+
+            const openCalibration = () => {
+                setIsEditingTime(true);
+                setEditTimeVal({ h: currentTime.getHours(), m: currentTime.getMinutes(), s: currentTime.getSeconds() });
+            };
+            
+            const syncToSystemTime = () => {
+                const now = new Date();
+                setEditTimeVal({ h: now.getHours(), m: now.getMinutes(), s: now.getSeconds() });
+            };
+
+            const confirmCalibration = () => {
+                const now = new Date();
+                const target = new Date();
+                target.setHours(editTimeVal.h);
+                target.setMinutes(editTimeVal.m);
+                target.setSeconds(editTimeVal.s);
+                const newOffset = target.getTime() - now.getTime();
+                setTimeOffset(newOffset);
+                setCurrentTime(new Date(Date.now() + newOffset));
+                setIsEditingTime(false);
+            };
+
+            const triggerAlert = (voiceText, displayText, isCentered = false) => {
+                speak(voiceText);
+                setTempStatusText(displayText);
+                setIsAlertCentered(isCentered);
+                if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+                alertTimerRef.current = setTimeout(() => { setTempStatusText(null); }, 30000); 
+            };
+
+            const handleExtendConfirm = () => {
+                if (!extendConfirmData) return;
+                const addMinutes = extendConfirmData.minutes;
+                const addSeconds = addMinutes * 60;
+                setTotalSeconds(prev => prev + addSeconds);
+                setRemainingSeconds(prev => prev + addSeconds);
+                setInputMinutes(prev => prev + addMinutes); 
+                if (isTimerRunningRef.current) endTimeRef.current += addSeconds * 1000;
+
+                setSpokenFlags(prev => {
+                    const next = { ...prev };
+                    const newTotal = totalSeconds + addSeconds;
+                    const newRem = remainingSeconds + addSeconds;
+                    if (newRem > 300) next.fiveMin = false;
+                    if (newRem > 600) next.tenMin = false;
+                    if (newRem > newTotal / 2) next.half = false;
+                    return next;
+                });
+
+                triggerAlert(`已延長${addMinutes}分鐘`, `延長 ${addMinutes} 分鐘`, true);
+                setExtendConfirmData(null);
+                setIsExtendMenuOpen(false);
+            };
+
+            const openCustomTextMenu = () => {
+                const currentData = customMessagesMap[mode] || { start: [""], half: [""], end: [""] };
+                setTempEditingMessages(JSON.parse(JSON.stringify(currentData))); 
+                setEditCustomTextVal(currentData.start.join('\n'));
+                setActiveTab('start');
+                setIsCustomTextMenuOpen(true);
+            };
+
+            const handleTabChange = (newTab) => {
+                const lines = editCustomTextVal.split('\n'); 
+                setTempEditingMessages(prev => ({
+                    ...prev,
+                    [activeTab]: lines
+                }));
+
+                const newLines = tempEditingMessages[newTab] || [];
+                setEditCustomTextVal(newLines.join('\n'));
+                setActiveTab(newTab);
+            };
+
+            const handleCustomTextSave = () => {
+                const currentLines = editCustomTextVal.split('\n');
+                const finalMessages = {
+                    ...tempEditingMessages,
+                    [activeTab]: currentLines
+                };
+
+                const cleanLines = (arr) => arr.filter(line => line.trim() !== "");
+                
+                const cleanedData = {
+                    start: cleanLines(finalMessages.start),
+                    half: cleanLines(finalMessages.half),
+                    end: cleanLines(finalMessages.end)
+                };
+
+                if (cleanedData.start.length === 0) {
+                    cleanedData.start = [mode === 'EXAM' ? "考試進行中" : "活動進行中"];
+                }
+
+                setCustomMessagesMap(prev => ({
+                    ...prev,
+                    [mode]: cleanedData
+                }));
+                setIsCustomTextMenuOpen(false);
+            };
+
+            const handleCustomTextReset = () => {
+                const defaultMsg = mode === 'EXAM' ? "考試進行中" : "活動進行中";
+                const resetData = { start: [defaultMsg], half: [], end: [] };
+                setTempEditingMessages(resetData);
+                setEditCustomTextVal(defaultMsg);
+                if (activeTab === 'start') setEditCustomTextVal(defaultMsg);
+                else setEditCustomTextVal("");
+                setActiveTab('start');
+                setEditCustomTextVal(defaultMsg);
+            };
+
+            const resetTimer = () => {
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                setIsTimerRunning(false);
+                setExamStatus("READY");
+                setRemainingSeconds(inputMinutes * 60);
+                setTotalSeconds(inputMinutes * 60);
+                setSpokenFlags({ half: false, tenMin: false, fiveMin: false });
+                setTempStatusText(null);
+                if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
+                setMediaList([]);
+                setActiveMedia(null);
+                setShowVideoOverlay(false);
+                setExtendConfirmData(null);
+                setIsExtendMenuOpen(false);
+                releaseWakeLock();
+            };
+
+            const handleExamEnd = () => {
+                setExamStatus("ENDED");
+                setIsTimerRunning(false);
+                releaseWakeLock();
+                if (mediaRef.current) mediaRef.current.pause();
+                if (mode === 'EXAM') triggerAlert("時間到，請停筆。時間到，請停筆。", "考試結束");
+                else triggerAlert("時間到，活動結束。", "活動結束");
+            };
+
+            const toggleTimer = () => {
+                if (examStatus === "ENDED") { resetTimer(); return; }
+                if (isTimerRunning) {
+                    setIsTimerRunning(false);
+                    setExamStatus("PAUSED");
+                    releaseWakeLock();
+                } else {
+                    if (examStatus === "READY") {
+                        setTotalSeconds(inputMinutes * 60);
+                        setRemainingSeconds(inputMinutes * 60);
+                        setSpokenFlags({ half: false, tenMin: false, fiveMin: false });
+                        endTimeRef.current = Date.now() + inputMinutes * 60 * 1000;
+                        if (!activeMedia) {
+                            if (mode === 'EXAM') triggerAlert(`考試開始，總共${inputMinutes}分鐘，請寫上班級座號姓名`, "考試開始，寫上班級座號姓名");
+                            else triggerAlert(`活動開始，總共${inputMinutes}分鐘，請把握時間`, "活動開始，請把握時間");
+                        }
+                    } else if (examStatus === "PAUSED") {
+                         endTimeRef.current = Date.now() + remainingSeconds * 1000;
+                    }
+                    setIsTimerRunning(true);
+                    setExamStatus("RUNNING");
+                    requestWakeLock();
+                }
+            };
+
+            useEffect(() => {
+                const handleVisibilityChange = () => {
+                    if (document.visibilityState === 'visible' && isTimerRunning) requestWakeLock();
+                };
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+                return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+            }, [isTimerRunning, requestWakeLock]);
+
+            useEffect(() => {
+                handleExamEndRef.current = handleExamEnd;
+                isTimerRunningRef.current = isTimerRunning;
+            });
+
+            const animate = useCallback(() => {
+                const now = Date.now();
+                const realTime = now + timeOffset;
+                const currentSystemSec = Math.floor(realTime / 1000);
+                
+                if (currentSystemSec !== lastClockSecRef.current) {
+                    setCurrentTime(new Date(realTime));
+                    lastClockSecRef.current = currentSystemSec;
+
+                    if (isTimerRunningRef.current) {
+                        const timeLeftMs = endTimeRef.current - now;
+                        const timeLeftSec = Math.max(0, Math.ceil(timeLeftMs / 1000));
+                        setRemainingSeconds(prev => {
+                            if (prev !== timeLeftSec) {
+                                if (timeLeftSec <= 0) {
+                                    setTimeout(() => { if (handleExamEndRef.current) handleExamEndRef.current(); }, 0);
+                                    return 0;
+                                }
+                                return timeLeftSec;
+                            }
+                            return prev;
+                        });
+                    }
+                }
+                requestRef.current = requestAnimationFrame(animate);
+            }, [timeOffset]);
+
+            useEffect(() => {
+                requestRef.current = requestAnimationFrame(animate);
+                return () => cancelAnimationFrame(requestRef.current);
+            }, [animate]);
+
+            useEffect(() => {
+                const isMediaActive = showVideoOverlay || (mediaRef.current && !mediaRef.current.paused);
+                if (!isTimerRunning || examStatus !== "RUNNING" || isMediaActive) return;
+
+                const totalMin = totalSeconds / 60;
+                const isTime = (targetSec) => remainingSeconds === targetSec;
+
+                if (totalMin >= 30 && !spokenFlags.half) { 
+                    if (isTime(totalSeconds / 2)) {
+                        if (mode === 'EXAM') triggerAlert("時間只剩一半，請把握時間", "時間只剩一半");
+                        else triggerAlert("時間只剩一半，請加快速度", "時間只剩一半");
+                        setSpokenFlags(prev => ({ ...prev, half: true }));
+                    }
+                }
+                if (totalMin >= 20 && totalMin < 30 && !spokenFlags.tenMin) {
+                    if (isTime(600)) {
+                        triggerAlert("剩下10分鐘，請注意時間", "最後10分鐘");
+                        setSpokenFlags(prev => ({ ...prev, tenMin: true }));
+                    }
+                }
+                if (totalMin >= 10 && !spokenFlags.fiveMin) {
+                    if (isTime(300)) {
+                        if (mode === 'EXAM') triggerAlert("剩下5分鐘，檢查班級座號姓名，做最後檢查", "最後5分鐘");
+                        else triggerAlert("剩下5分鐘，活動即將結束", "最後5分鐘");
+                        setSpokenFlags(prev => ({ ...prev, fiveMin: true }));
+                    }
+                }
+            }, [remainingSeconds, isTimerRunning, showVideoOverlay, mode, totalSeconds, spokenFlags]);
+
+            const addToMediaList = (name, src, type) => {
+                if (mediaList.length >= 3) { alert("最多只能新增 3 個媒體檔案"); return; }
+                if (mediaList.some(m => m.src === src)) { alert("此檔案已在清單中"); return; }
+                setMediaList(prev => [...prev, { id: Date.now(), name, src, type, played: false }]);
+            };
+
+            const handleFileSelect = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const url = URL.createObjectURL(file);
+                addToMediaList(file.name, url, file.type.startsWith('video') ? 'video' : 'audio');
+                e.target.value = ''; 
+            };
+
+            const playMediaItem = (item) => {
+                setActiveMedia(item);
+                setMediaList(prev => prev.map(m => m.id === item.id ? { ...m, played: true } : m));
+                if (item.type === 'video') setShowVideoOverlay(true);
+            };
+
+            const formatClock12 = (date) => {
+                const hours = date.getHours();
+                const ampm = hours >= 12 ? '下午' : '上午';
+                const h = hours % 12 || 12;
+                const m = String(date.getMinutes()).padStart(2, '0');
+                const s = String(date.getSeconds()).padStart(2, '0');
+                return { ampm, time: `${h}:${m}:${s}` };
+            };
+
+            const formatTime = (sec) => {
+                const m = Math.floor(sec / 60);
+                const s = sec % 60;
+                return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+
+            const getProgressColor = () => {
+                const ratio = remainingSeconds / totalSeconds;
+                const minLeft = remainingSeconds / 60;
+                const themeColors = THEMES[currentTheme].colors;
+                if (minLeft <= 5) return themeColors.end; 
+                if (ratio <= 0.5) return themeColors.half; 
+                return themeColors.start; 
+            };
+
+            const svgWidth = 900; 
+            const svgHeight = 300; 
+            const strokeWidth = 32;
+            const rectWidth = svgWidth - strokeWidth; 
+            const rectHeight = svgHeight - strokeWidth;
+            const straightLen = (rectWidth - rectHeight) * 2; 
+            const arcLen = Math.PI * rectHeight; 
+            const circumference = straightLen + arcLen;
+            const strokeDashoffset = circumference * ((totalSeconds - remainingSeconds) / totalSeconds);
+            const currentColor = getProgressColor();
+            const { ampm, time } = formatClock12(currentTime);
+            
+            let statusText = "";
+            let isCentered = true; 
+
+            if (tempStatusText) {
+                statusText = tempStatusText;
+                isCentered = isAlertCentered; 
+            } else {
+                if (examStatus === "READY") statusText = "準備開始";
+                else if (examStatus === "PAUSED") statusText = "暫停計時";
+                else if (examStatus === "ENDED") statusText = mode === 'EXAM' ? "考試結束" : "活動結束";
+                else if (examStatus === "RUNNING") {
+                    statusText = activeMessages[currentMsgIndex] || (mode === 'EXAM' ? "考試進行中" : "活動進行中");
+                }
+                if (!tempStatusText) isCentered = statusText.length <= 9;
+            }
+
+            const themeStyle = THEMES[currentTheme];
+
+            // Helper for tab colors (using theme)
+            const getTabColor = (phase) => {
+                if (phase === 'start') return themeStyle.colors.start;
+                if (phase === 'half') return themeStyle.colors.half;
+                return themeStyle.colors.end;
+            };
+
+            return (
+                <div className="flex flex-col h-screen w-screen relative">
+                    <div className={`h-[30%] flex flex-col justify-center items-center relative border-b ${themeStyle.border} z-10 shrink-0 transition-colors duration-500 ${themeStyle.bgTop}`}>
+                        <div className="absolute top-4 left-4 flex flex-col gap-2 z-20 opacity-0 hover:opacity-100 transition-opacity duration-300">
+                            <div className={`font-bold flex items-center gap-2 ${themeStyle.textTop}`}>
+                                <span>🕒 現在時間</span>
+                                <button onClick={openCalibration} className="bg-gray-500 text-white text-xs px-2 py-1 rounded hover:bg-gray-600 transition">校準</button>
+                            </div>
+                            {!isEditingTime && (
+                                <div className="flex flex-col gap-2 opacity-60 hover:opacity-100 transition">
+                                    <div className="flex items-center gap-1">
+                                        <span className={`text-xs font-bold w-4 ${themeStyle.textTop}`}>分</span>
+                                        <button onClick={() => adjustTime('m', 1)} className="bg-gray-300 px-2 py-0.5 rounded text-gray-800 text-xs hover:bg-gray-400">+</button>
+                                        <button onClick={() => adjustTime('m', -1)} className="bg-gray-300 px-2 py-0.5 rounded text-gray-800 text-xs hover:bg-gray-400">-</button>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span className={`text-xs font-bold w-4 ${themeStyle.textTop}`}>秒</span>
+                                        <button onClick={() => adjustTime('s', 1)} className="bg-gray-300 px-2 py-0.5 rounded text-gray-800 text-xs hover:bg-gray-400">+</button>
+                                        <button onClick={() => adjustTime('s', -1)} className="bg-gray-300 px-2 py-0.5 rounded text-gray-800 text-xs hover:bg-gray-400">-</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {isEditingTime ? (
+                            <div className="flex flex-col items-center gap-3 bg-white p-4 rounded-xl shadow-lg border border-gray-300 z-50">
+                                <div className="flex items-center gap-2 text-black">
+                                    <input type="number" value={editTimeVal.h} onChange={e=>setEditTimeVal({...editTimeVal, h:Number(e.target.value)})} className="w-16 text-3xl text-center border rounded p-1" />
+                                    <span className="text-2xl">:</span>
+                                    <input type="number" value={editTimeVal.m} onChange={e=>setEditTimeVal({...editTimeVal, m:Number(e.target.value)})} className="w-16 text-3xl text-center border rounded p-1" />
+                                    <span className="text-2xl">:</span>
+                                    <input type="number" value={editTimeVal.s} onChange={e=>setEditTimeVal({...editTimeVal, s:Number(e.target.value)})} className="w-16 text-3xl text-center border rounded p-1" />
+                                </div>
+                                <div className="flex items-center gap-2 w-full justify-between">
+                                    <button onClick={confirmCalibration} className="bg-blue-600 text-white px-4 py-1 rounded text-sm hover:bg-blue-700 flex-1">確定</button>
+                                    <button onClick={syncToSystemTime} className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700 whitespace-nowrap" title="重置為目前電腦時間">🔄 抓取系統時間</button>
+                                    <button onClick={()=>setIsEditingTime(false)} className="bg-gray-400 text-white px-4 py-1 rounded text-sm hover:bg-gray-500 flex-1">取消</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={`flex items-baseline gap-4 ${themeStyle.textTop} perspective-container`}>
+                                <span className="text-4xl md:text-6xl font-bold">{ampm}</span>
+                                <div className="flex text-7xl md:text-9xl font-bold digital-font tracking-wider">
+                                    {/* [V11] 頂部時鐘 */}
+                                    {time.split('').map((char, i) => (
+                                        <RollingDigit key={i} value={char} baseColor={THEMES[currentTheme].digitBg} textColor="#f1f5f9" />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className={`h-[70%] flex flex-col relative transition-colors duration-500 ${themeStyle.bgMain}`}>
+                        <div className="flex-1 relative flex items-center justify-center p-2 overflow-hidden w-full">
+                            <div className="absolute bottom-4 left-4 z-40 flex flex-col gap-3 items-start">
+                                <div className="relative">
+                                    <button onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)} className="bg-black/20 hover:bg-black/30 text-white backdrop-blur-sm border border-white/20 rounded-full w-10 h-10 flex items-center justify-center shadow-lg transition-all" title="切換主題"><span className="text-xl">🎨</span></button>
+                                    {isThemeMenuOpen && (
+                                        <div className="absolute left-12 bottom-0 bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-xl flex gap-2 shadow-xl theme-menu-enter theme-menu-enter-active">
+                                            {Object.keys(THEMES).map(key => (
+                                                <button key={key} onClick={() => { setCurrentTheme(key); setIsThemeMenuOpen(false); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110 ${currentTheme === key ? 'ring-2 ring-white scale-110' : 'opacity-80 hover:opacity-100'}`} style={{ backgroundColor: THEMES[key].colors.start }} title={THEMES[key].name}><span className="text-sm shadow-black drop-shadow-md">{THEMES[key].icon}</span></button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="bg-black/20 backdrop-blur-sm rounded-lg p-1 flex border border-white/10 shadow-lg">
+                                    <button onClick={() => setMode('EXAM')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all duration-300 ${mode === 'EXAM' ? 'bg-blue-600 text-white shadow-md' : 'text-white/60 hover:text-white hover:bg-white/10'}`}>考試</button>
+                                    <div className="w-[1px] bg-white/10 my-1 mx-1"></div>
+                                    <button onClick={() => setMode('CLASS')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all duration-300 ${mode === 'CLASS' ? 'bg-green-600 text-white shadow-md' : 'text-white/60 hover:text-white hover:bg-white/10'}`}>一般</button>
+                                </div>
+                            </div>
+
+                            <svg className="w-full h-full max-w-[95vw]" viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="xMidYMid meet">
+                                <defs>
+                                    {/* [V12] 極致光暈漸層 (Ultimate Halo Gradient) */}
+                                    <linearGradient id="ringGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        {/* Top: 逆光補償 - 亮白能量 */}
+                                        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.6" />
+                                        
+                                        {/* Upper Mid: 純色定錨 */}
+                                        <stop offset="30%" stopColor={currentColor} stopOpacity="1" />
+                                        
+                                        {/* Upper Mid: 光暈過渡 */}
+                                        <stop offset="45%" stopColor={currentColor} stopOpacity="1" />
+                                        
+                                        {/* Center: 極細光芯與光暈 */}
+                                        <stop offset="48%" stopColor="#ffffff" stopOpacity="0.6" /> {/* 光暈開始 */}
+                                        <stop offset="50%" stopColor="#ffffff" stopOpacity="1" />   {/* 核心極亮 */}
+                                        <stop offset="52%" stopColor="#ffffff" stopOpacity="0.6" /> {/* 光暈結束 */}
+                                        
+                                        {/* Lower Mid: 光暈過渡 */}
+                                        <stop offset="55%" stopColor={currentColor} stopOpacity="1" />
+                                        
+                                        {/* Lower Mid: 純色定錨 */}
+                                        <stop offset="70%" stopColor={currentColor} stopOpacity="1" />
+                                        
+                                        {/* Bottom: 逆光補償 - 亮白能量 */}
+                                        <stop offset="100%" stopColor="#ffffff" stopOpacity="0.6" />
+                                    </linearGradient>
+                                </defs>
+                                
+                                <rect x={strokeWidth/2} y={strokeWidth/2} width={rectWidth} height={rectHeight} rx={rectHeight/2} ry={rectHeight/2} className="text-white/10" strokeWidth={strokeWidth} stroke="currentColor" fill="transparent" />
+                                
+                                {/* 雙層結構 (Base + Overlay) */}
+                                {/* 1. Base: Solid Color */}
+                                <rect 
+                                    x={strokeWidth/2} y={strokeWidth/2} 
+                                    width={rectWidth} height={rectHeight} 
+                                    rx={rectHeight/2} ry={rectHeight/2} 
+                                    className="progress-ring__path progress-base" 
+                                    stroke={currentColor} 
+                                    strokeWidth={strokeWidth} 
+                                    strokeLinecap="round" 
+                                    fill="transparent" 
+                                    style={{ strokeDasharray: circumference, strokeDashoffset: strokeDashoffset }} 
+                                />
+                                
+                                {/* 2. Overlay: Overdrive Gradient */}
+                                <rect 
+                                    x={strokeWidth/2} y={strokeWidth/2} 
+                                    width={rectWidth} height={rectHeight} 
+                                    rx={rectHeight/2} ry={rectHeight/2} 
+                                    className="progress-ring__path" 
+                                    stroke="url(#ringGradient)" 
+                                    strokeWidth={strokeWidth} 
+                                    strokeLinecap="round" 
+                                    fill="transparent" 
+                                    style={{ strokeDasharray: circumference, strokeDashoffset: strokeDashoffset }} 
+                                />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center digital-font font-bold leading-none transition-colors duration-300 drop-shadow-lg pointer-events-none perspective-container" style={{ fontSize: 'min(28vw, 28vh)', color: currentColor }}>
+                                <div className="flex">
+                                     {/* [V12] 倒數計時器 */}
+                                     {formatTime(remainingSeconds).split('').map((char, i) => (
+                                        <RollingDigit key={i} value={char} baseColor={THEMES[currentTheme].digitBg} textColor={currentColor} />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={`w-full backdrop-blur border-t ${themeStyle.border} p-4 pb-16 relative flex items-center z-20 shadow-lg min-h-[120px] transition-colors duration-500 ${themeStyle.bgStatus}`}>
+                            <div className="flex items-end gap-3 z-30 relative top-2 shrink-0">
+                                <div className="flex flex-col">
+                                    <label className="text-xs text-gray-300 font-bold mb-1 ml-1">時間(分)</label>
+                                    <input type="number" value={inputMinutes} onChange={(e) => setInputMinutes(Number(e.target.value))} disabled={isTimerRunning} className="w-20 h-10 text-xl text-center bg-slate-600 border-2 border-slate-500 rounded-lg focus:outline-none focus:border-blue-400 text-white font-bold disabled:opacity-50" />
+                                </div>
+                                <div className="relative flex flex-col justify-end group">
+                                    <div className="absolute bottom-full mb-2 w-full flex flex-col items-center relative">
+                                        <button onClick={() => setIsExtendMenuOpen(!isExtendMenuOpen)} className="bg-gray-600/80 hover:bg-gray-500 text-white text-[10px] px-2 py-0.5 rounded-full mb-1 transition shadow-sm whitespace-nowrap" title="延長時間">⏱️ 延長</button>
+                                        {isExtendMenuOpen && (
+                                            <div className="flex flex-row gap-1 absolute left-full top-0 ml-2 bg-slate-800/90 p-1 rounded border border-slate-600 shadow-xl extend-menu-enter extend-menu-enter-active z-50">
+                                                {[1, 5, 10].map(min => (
+                                                    <button key={min} onClick={() => setExtendConfirmData({ minutes: min })} className="px-2 py-1 bg-slate-600 hover:bg-blue-600 text-white text-xs rounded whitespace-nowrap transition">+{min}分</button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button onClick={toggleTimer} className={`h-10 px-6 rounded-lg font-bold text-lg shadow-md transition-transform active:scale-95 text-white ${isTimerRunning ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'}`}>{isTimerRunning ? '暫停' : examStatus === "PAUSED" ? "繼續" : "開始"}</button>
+                                </div>
+                                <div className="relative flex flex-col justify-end group">
+                                    <div className="absolute bottom-full mb-2 w-full flex flex-col items-center relative">
+                                        <button onClick={openCustomTextMenu} className="bg-gray-600/80 hover:bg-gray-500 text-white text-[10px] px-2 py-0.5 rounded-full mb-1 transition shadow-sm whitespace-nowrap" title="自訂文字">✏️ 文字</button>
+                                    </div>
+                                    <button onClick={resetTimer} className="h-10 px-4 rounded-lg font-bold text-base bg-gray-600 hover:bg-gray-500 text-white shadow-md transition-transform active:scale-95">重置</button>
+                                </div>
+                            </div>
+                            
+                            {!isCentered ? (
+                                <div className="flex-1 ml-16 flex items-center justify-start overflow-hidden perspective-container h-full">
+                                    <div key={statusText} className="text-4xl md:text-5xl font-bold tracking-widest drop-shadow-md break-words leading-tight whitespace-normal text-flip text-left" style={{ color: currentColor }}>{statusText}</div>
+                                </div>
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none perspective-container pb-12">
+                                    <div key={statusText} className="text-4xl md:text-5xl font-bold tracking-widest drop-shadow-md break-words leading-tight whitespace-normal text-flip text-center" style={{ color: currentColor }}>{statusText}</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className={`fixed bottom-0 left-0 w-full text-white z-30 backdrop-blur-sm border-t ${themeStyle.border} h-14 flex items-center transition-colors duration-500 ${themeStyle.bgMedia}`}>
+                        <div className="absolute left-4 top-0 h-full flex items-center gap-3">
+                            <div className="font-bold text-blue-300 text-sm select-none whitespace-nowrap">♫ 素材 ({mediaList.length}/3)</div>
+                            <div className="flex items-center gap-2">
+                                <label className={`cursor-pointer px-2 py-1 rounded flex items-center gap-1 transition border text-xs whitespace-nowrap ${mediaList.length >= 3 ? 'bg-white/10 opacity-50 cursor-not-allowed border-white/10' : 'bg-white/20 hover:bg-white/30 border-white/20'}`}><span>📂</span><span>檔案</span><input type="file" accept="audio/*,video/*" onChange={handleFileSelect} className="hidden" disabled={mediaList.length >= 3} /></label>
+                            </div>
+                        </div>
+                        <div className="absolute left-1/2 -translate-x-1/2 top-0 h-full flex items-center justify-center gap-2 w-1/3 overflow-hidden">
+                             <div className="flex gap-2 overflow-x-auto no-scrollbar justify-center w-full">
+                                {mediaList.map((item, index) => (
+                                    <button key={item.id} onClick={() => playMediaItem(item)} className={`px-3 py-1 rounded-full font-bold text-xs shadow-md transition-all whitespace-nowrap max-w-[120px] truncate border shrink-0 ${activeMedia && activeMedia.id === item.id ? 'border-yellow-400 ring-1 ring-yellow-400 bg-yellow-700/30 text-yellow-100' : 'border-transparent'} ${item.played ? 'bg-white/20 text-gray-300 hover:bg-white/30' : 'bg-blue-600 text-white hover:bg-blue-500'}`} title={item.name}>{item.type === 'video' ? '📺' : '🔈'} {index + 1}.{item.name}</button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="absolute right-4 top-0 h-full flex items-center">
+                            {activeMedia && activeMedia.type === 'audio' && (
+                                <div className="flex items-center gap-2 animate-fade-in bg-black/40 rounded-full px-2 py-1"><span className="text-xs text-green-400 animate-pulse hidden md:inline whitespace-nowrap">● 播放中</span><audio ref={mediaRef} controls src={activeMedia.src} autoPlay className="h-8 w-32 md:w-48 opacity-90 hover:opacity-100 transition" /></div>
+                            )}
+                        </div>
+                    </div>
+
+                    {showVideoOverlay && activeMedia && activeMedia.type === 'video' && (
+                        <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center">
+                            <button onClick={() => { setShowVideoOverlay(false); if(mediaRef.current) mediaRef.current.pause(); }} className="absolute top-6 right-6 text-white bg-red-600 hover:bg-red-700 w-12 h-12 rounded-full text-2xl font-bold shadow-lg z-[101]">×</button>
+                            <video ref={mediaRef} src={activeMedia.src} controls autoPlay className="w-full h-full max-w-6xl max-h-[90vh] shadow-2xl" onEnded={() => setShowVideoOverlay(false)} />
+                            <div className="absolute bottom-10 text-white text-lg font-bold drop-shadow-md bg-black/50 px-4 py-2 rounded-full pointer-events-none">正在播放: {activeMedia.name}</div>
+                        </div>
+                    )}
+
+                    {extendConfirmData && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-end justify-start p-4 pb-24 animate-fade-in">
+                            <div className="bg-white rounded-2xl p-6 shadow-2xl border border-gray-200 max-w-sm w-full ml-4 transform transition-all scale-100">
+                                <h3 className="text-xl font-bold text-gray-800 mb-2 border-b pb-2">⏱️ 確認延長時間</h3>
+                                <div className="text-gray-600 mb-6">將增加 <span className="text-blue-600 font-bold text-lg">{extendConfirmData.minutes}</span> 分鐘，<br/>總考試時間將變更為 <span className="font-bold">{inputMinutes + extendConfirmData.minutes}</span> 分鐘。</div>
+                                <div className="flex gap-3 justify-end">
+                                    <button onClick={() => setExtendConfirmData(null)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">取消</button>
+                                    <button onClick={handleExtendConfirm} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg transition">確認延長</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {isCustomTextMenuOpen && (
+                        <div className={`fixed inset-0 backdrop-blur-sm z-[200] flex items-end justify-start p-4 pb-24 animate-fade-in modal-enter modal-enter-active ${themeStyle.bgStatus} bg-opacity-70`}>
+                            <div className={`rounded-2xl p-6 shadow-2xl border border-gray-200/20 max-w-sm w-full ml-4 transform transition-all scale-100 ${themeStyle.bgStatus} border border-white/10 text-white shadow-2xl`}>
+                                <h3 className="text-xl font-bold mb-4 border-b border-white/20 pb-2 flex justify-between items-center">
+                                    <span>✏️ 自訂顯示文字 ({mode === 'EXAM' ? '考試' : '一般'})</span>
+                                    <button onClick={()=>setIsCustomTextMenuOpen(false)} className="opacity-70 hover:opacity-100 transition">✕</button>
+                                </h3>
+                                
+                                {/* 分頁標籤 */}
+                                <div className="flex gap-2 mb-4">
+                                    {[
+                                        { id: 'start', label: '初始階段', color: themeStyle.colors.start },
+                                        { id: 'half', label: '中場提醒', color: themeStyle.colors.half },
+                                        { id: 'end', label: '最後衝刺', color: themeStyle.colors.end }
+                                    ].map(tab => (
+                                        <button 
+                                            key={tab.id}
+                                            onClick={() => handleTabChange(tab.id)}
+                                            className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col items-center gap-1 ${activeTab === tab.id ? 'bg-white/20 shadow-inner' : 'hover:bg-white/10 opacity-70'}`}
+                                        >
+                                            <div className="w-3 h-3 rounded-full shadow-sm border border-black/20" style={{ backgroundColor: tab.color }}></div>
+                                            <span>{tab.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="text-white/70 mb-2 text-xs">
+                                    {activeTab === 'start' && "時間還很充裕時顯示 (綠燈階段)"}
+                                    {activeTab === 'half' && "時間過半後顯示 (黃燈階段)"}
+                                    {activeTab === 'end' && "最後 5 分鐘顯示 (紅燈階段)"}
+                                    ，多行文字每 2 分鐘輪播。
+                                </div>
+                                
+                                <textarea 
+                                    value={editCustomTextVal}
+                                    onChange={(e) => setEditCustomTextVal(e.target.value)}
+                                    className="w-full h-32 border border-white/20 rounded-lg p-3 mb-4 bg-black/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 resize-none text-sm"
+                                    placeholder={activeTab === 'start' ? "例如：\n考試進行中\n請保持安靜" : "若留空，將自動沿用上一階段的文字"}
+                                />
+                                
+                                <div className="flex gap-2 justify-end">
+                                    <button onClick={handleCustomTextReset} className="px-3 py-2 bg-yellow-600/80 text-white rounded-lg font-bold hover:bg-yellow-600 transition text-sm whitespace-nowrap shadow-md">恢復預設</button>
+                                    <div className="flex-1"></div>
+                                    <button onClick={() => setIsCustomTextMenuOpen(false)} className="px-4 py-2 bg-white/10 text-white rounded-lg font-bold hover:bg-white/20 transition text-sm">取消</button>
+                                    <button onClick={handleCustomTextSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-500 shadow-lg transition text-sm">儲存</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
+    </script>
+</body>
+</html>
