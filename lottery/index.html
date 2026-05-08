@@ -1,0 +1,1849 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎊 進階儀式感抽籤系統V2</title>
+    <!-- 引入 Tailwind CSS 處理日夜間模式與現代化排版 (已釘版 v3.4.1 避免未來跑版) -->
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
+                        'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both',
+                        'pulse-fast': 'pulse 0.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-2px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(4px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-6px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(6px, 0, 0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- 引入支援樣式輸出的 xlsx-js-style (取代一般 SheetJS，已釘版 v1.2.0) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    
+    <style>
+        /* 隱藏滾動條但保留功能，讓畫面更乾淨 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        .result-card { opacity: 0; } 
+        
+        /* 駭客任務特效專用 */
+        .effect-matrix { background-color: #0f172a !important; color: #22c55e !important; border-color: #22c55e !important; font-family: monospace; text-shadow: 0 0 10px #22c55e; }
+        
+        /* 手風琴圖示旋轉特效 */
+        .rotate-[-90deg] { transform: rotate(-90deg); }
+
+        /* =========================================
+           🎰 吃角子老虎機專用 CSS 
+           ========================================= */
+        .slot-machine-body {
+            position: relative;
+            background: linear-gradient(145deg, #ef4444, #991b1b);
+            border-radius: 30px;
+            padding: 24px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 5px 10px rgba(255,255,255,0.3), inset 0 -10px 20px rgba(0,0,0,0.6);
+            border-bottom: 15px solid #7f1d1d;
+            border-top: 4px solid #f87171;
+        }
+        .machine-lights { display: flex; justify-content: space-around; width: 100%; padding: 8px 12px; }
+        .light-bulb {
+            width: 16px; height: 16px; border-radius: 50%; background: #fef08a; 
+            box-shadow: 0 0 10px #eab308, inset 0 0 4px #fff; animation: blink 0.6s infinite alternate;
+        }
+        .light-bulb:nth-child(even) {
+            animation-delay: 0.3s; background: #fca5a5; box-shadow: 0 0 15px #ef4444, inset 0 0 4px #fff;
+        }
+        @keyframes blink { from { opacity: 0.3; transform: scale(0.8); } to { opacity: 1; transform: scale(1.2); } }
+        .slot-machine-window {
+            height: 140px; overflow: hidden; position: relative; background: #f8fafc;
+            border: 8px solid #1e293b; border-radius: 12px; box-shadow: inset 0 15px 25px rgba(0,0,0,0.5), inset 0 -5px 10px rgba(0,0,0,0.2);
+        }
+        .slot-machine-window::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.6) 100%); pointer-events: none;
+        }
+        .slot-reel { display: flex; flex-direction: column; transition: transform 4s cubic-bezier(0.1, 0.7, 0.1, 1.02); }
+        .slot-item {
+            height: 140px; display: flex; align-items: center; justify-content: center; font-size: 3rem;
+            font-weight: 900; color: #0f172a; border-bottom: 4px solid #0f172a; text-shadow: 1px 1px 0px #fff; padding: 0 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .red-line {
+            position: absolute; top: 50%; left: 0; right: 0; height: 3px; background: rgba(239, 68, 68, 0.6); z-index: 10; box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+        }
+        .lever-container { perspective: 500px; }
+        .lever-stick { transform-origin: bottom center; transition: transform 0.4s cubic-bezier(0.3, 1.5, 0.6, 1); }
+        .lever-pull { transform: rotateX(150deg); }
+    </style>
+</head>
+<body class="bg-amber-50 text-stone-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 min-h-screen flex flex-col font-sans relative overflow-x-hidden">
+
+    <!-- 全域提示訊息容器 (Toast) -->
+    <div id="toast-container" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-[10000] flex flex-col gap-2 w-11/12 max-w-md pointer-events-none"></div>
+
+    <!-- 頂部導覽與控制列 -->
+    <header class="p-4 flex justify-between items-center bg-[#fdf9f1] dark:bg-slate-800 shadow-sm border-b border-amber-200 dark:border-slate-700 z-10 relative">
+        <div class="flex items-center gap-2 group relative">
+            <input type="text" id="main-title" value="自訂抽籤系統" class="text-2xl font-bold bg-transparent border-b-2 border-transparent hover:border-amber-300 focus:border-amber-500 outline-none transition px-1 w-48 sm:w-64 dark:text-white" title="點擊即可修改名稱">
+            <span class="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 absolute -right-6 pointer-events-none">✏️</span>
+        </div>
+        <div class="flex gap-4">
+            <button id="btn-back-setup" class="hidden px-4 py-2 rounded-lg bg-amber-100 dark:bg-slate-700 text-amber-800 dark:text-slate-200 hover:bg-amber-200 dark:hover:bg-slate-600 transition" onclick="switchView('setup')">
+                ⚙️ 回設定
+            </button>
+            <button id="btn-theme" class="p-2 rounded-full bg-amber-100 dark:bg-slate-700 hover:bg-amber-200 dark:hover:bg-slate-600 transition" onclick="toggleTheme()" title="切換日夜間模式">
+                🌙
+            </button>
+        </div>
+    </header>
+
+    <!-- 視圖 1：設定區 -->
+    <main id="view-setup" class="flex-grow flex flex-col items-center p-6 max-w-4xl mx-auto w-full gap-5">
+        
+        <!-- 區塊 1：獎項與輪次設定 -->
+        <section id="section-1" class="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl transition-all duration-500 ease-out border border-amber-200 dark:border-slate-700">
+            <h2 class="text-xl font-bold flex items-center justify-between cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors select-none" onclick="toggleSection(1)">
+                <div class="flex items-center gap-2">📝 1. 設定抽籤輪次與獎項</div>
+                <span id="icon-sec-1" class="text-sm transition-transform duration-300 transform">▼</span>
+            </h2>
+            
+            <div id="content-sec-1" class="mt-4 pb-2">
+                <!-- 匯入 Excel 設定檔功能 -->
+                <div class="flex flex-col sm:flex-row gap-4 mb-6 bg-amber-50 dark:bg-slate-700/30 p-4 rounded-xl border border-amber-100 dark:border-slate-600">
+                    <div class="flex-grow">
+                        <label class="block text-sm font-bold text-stone-600 dark:text-slate-300 mb-2">📥 批次匯入獎項設定 (Excel)</label>
+                        <input type="file" id="config-upload" accept=".xlsx, .xls" class="block w-full text-sm text-stone-500 dark:text-slate-400
+                            file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
+                            file:text-sm file:font-semibold file:bg-amber-200 file:text-amber-900
+                            dark:file:bg-blue-900/50 dark:file:text-blue-300 hover:file:bg-amber-300 dark:hover:file:bg-blue-900/70 cursor-pointer"
+                            onchange="handleConfigUpload(event)">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="downloadConfigTemplate()" class="px-4 py-2 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg shadow-sm border border-slate-200 dark:border-slate-600 transition whitespace-nowrap">
+                            📄 下載樣板
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 手動新增輪次 -->
+                <div class="flex justify-between items-center mb-3 border-t border-slate-100 dark:border-slate-700 pt-4">
+                    <h3 class="font-bold text-slate-600 dark:text-slate-300">手動設定清單：</h3>
+                    <button onclick="addRound()" class="px-4 py-2 bg-amber-100 text-amber-800 dark:bg-green-900/50 dark:text-green-300 rounded-lg hover:bg-amber-200 dark:hover:bg-green-800/50 transition font-bold">
+                        + 新增一輪
+                    </button>
+                </div>
+                
+                <div id="rounds-container" class="space-y-3">
+                    <!-- 輪次項目會由 JS 動態產生 -->
+                </div>
+
+                <div class="mt-6 flex flex-wrap justify-between border-t border-slate-100 dark:border-slate-700 pt-4 gap-4">
+                    <button onclick="showPrizePreviewModal()" class="px-6 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition w-full sm:w-auto">
+                        👀 預覽今日抽籤獎項
+                    </button>
+                    <button onclick="toggleSection(2)" class="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-md transition w-full sm:w-auto text-lg">
+                        下一步：特效設定 ➔
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 區塊 2：全域設定 -->
+        <section id="section-2" class="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl transition-all duration-500 ease-out border border-amber-200 dark:border-slate-700 opacity-60 scale-[0.98]">
+             <h2 class="text-xl font-bold flex items-center justify-between cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors select-none" onclick="toggleSection(2)">
+                 <div class="flex items-center gap-2">⚙️ 2. 抽籤規則與特效設定</div>
+                 <span id="icon-sec-2" class="text-sm transition-transform duration-300 transform rotate-[-90deg]">▼</span>
+             </h2>
+             <div id="content-sec-2" class="mt-4 pb-2 hidden">
+                 <div class="flex flex-col gap-6">
+                     <!-- 排除名單開關 -->
+                     <label class="flex items-center gap-3 cursor-pointer group w-fit">
+                        <div class="relative">
+                            <input type="checkbox" id="setting-exclude" class="sr-only" checked>
+                            <div id="toggle-bg" class="block bg-blue-500 dark:bg-blue-600 w-16 h-8 rounded-full transition-colors duration-300"></div>
+                            <div id="toggle-text-on" class="absolute left-2 top-1.5 text-xs font-bold text-white pointer-events-none">開啟</div>
+                            <div id="toggle-text-off" class="absolute right-2 top-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 pointer-events-none hidden">關閉</div>
+                            <div id="toggle-dot" class="absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 transform translate-x-8"></div>
+                        </div>
+                        <div class="font-medium text-lg">排除已中獎名單 <span class="text-sm text-stone-500 font-normal block sm:inline">(開啟：抽中者無法參與後續抽籤)</span></div>
+                    </label>
+
+                    <!-- 特效開關 (新增第4選項：懸念滑落老虎機) -->
+                    <div class="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-stone-600 dark:text-slate-300 mb-2">🎬 抽獎過程特效 (4選1)</label>
+                                <select id="select-process" class="w-full text-lg p-3 font-bold border-2 border-amber-200 rounded-xl bg-[#fdf9f1] dark:bg-slate-800 dark:border-slate-600 text-amber-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-sm">
+                                    <option value="pulse">⚡ 1. 極速原地洗牌</option>
+                                    <option value="matrix">🌧️ 2. 駭客任務代碼</option>
+                                    <!-- 把原本的老虎機隱藏起來，當作備用 -->
+                                    <!--<option value="slot">🎰 3. 吃角子老虎機</option> -->
+                                    <option value="slot_tease">😱 3. 吃角子老虎機</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-stone-600 dark:text-slate-300 mb-2">🎉 慶祝動畫特效 (3選1)</label>
+                                <select id="select-celebration" class="w-full text-lg p-3 font-bold border-2 border-amber-200 rounded-xl bg-[#fdf9f1] dark:bg-slate-800 dark:border-slate-600 text-amber-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-sm">
+                                    <option value="confetti">🎊 1. 經典彩紙噴發</option>
+                                    <option value="fireworks">🎇 2. 高空大煙火</option>
+                                    <option value="stars">🌟 3. 滿天星金幣雨</option>
+                                    <option value="none">❌ 無特效</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                            <label class="flex items-center gap-2 cursor-pointer w-fit">
+                                <input type="checkbox" id="setting-anim-once" class="w-6 h-6 rounded text-amber-500 focus:ring-amber-500 cursor-pointer border-2 border-amber-300">
+                                <span class="font-medium text-lg">僅首抽顯示動畫 <span class="text-sm text-stone-500 font-normal block md:inline">(同輪後續將快速開出)</span></span>
+                            </label>
+
+                            <label class="flex items-center gap-2 cursor-pointer w-fit">
+                                <input type="checkbox" id="setting-reverse-draw" class="w-6 h-6 rounded text-amber-500 focus:ring-amber-500 cursor-pointer border-2 border-amber-300">
+                                <span class="font-medium text-lg">🔄 倒序開獎 <span class="text-sm text-stone-500 font-normal block md:inline">(從最後一輪開始往前抽)</span></span>
+                            </label>
+
+                            <label class="flex items-center gap-2 cursor-pointer w-fit">
+                                <input type="checkbox" id="setting-mute" class="w-6 h-6 rounded text-slate-500 focus:ring-slate-500 cursor-pointer border-2 border-slate-300 dark:border-slate-600">
+                                <span class="font-medium text-lg">🔇 靜音模式 <span class="text-sm text-stone-500 font-normal block md:inline">(勾選後全程不播音效)</span></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 flex justify-end border-t border-slate-100 dark:border-slate-700 pt-4">
+                        <button onclick="saveSettingsAndLoadEffects()" class="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl shadow-md transition w-full sm:w-auto text-lg">
+                            💾 確認特效設定 (解鎖音效與下一步)
+                        </button>
+                    </div>
+                </div>
+             </div>
+        </section>
+
+        <!-- 區塊 3：匯入名單 -->
+        <section id="section-3" class="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl transition-all duration-500 ease-out border border-amber-200 dark:border-slate-700 opacity-60 scale-[0.98]">
+            <h2 class="text-xl font-bold flex items-center justify-between cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors select-none" onclick="toggleSection(3)">
+                <div class="flex items-center gap-2">📂 3. 匯入抽籤名單與確認</div>
+                <span id="icon-sec-3" class="text-sm transition-transform duration-300 transform rotate-[-90deg]">▼</span>
+            </h2>
+            <div id="content-sec-3" class="mt-4 pb-2 hidden">
+                
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 mb-6 pb-4 gap-4 flex-wrap">
+                    <div class="flex p-1 bg-slate-100 dark:bg-slate-700/50 rounded-xl" id="tab-container">
+                        <button id="tab-btn-A" onclick="switchTab('A')" class="px-5 py-2 rounded-lg font-bold text-amber-600 dark:text-amber-400 bg-white dark:bg-slate-600 shadow-sm transition">📁 EXCEL 名單匯入</button>
+                        <button id="tab-btn-B" onclick="switchTab('B')" class="px-5 py-2 rounded-lg font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition">🔢 快速產生座號</button>
+                    </div>
+                    <button onclick="clearStep3List()" class="px-4 py-2 text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition flex items-center gap-1 shadow-sm">
+                        🗑️ 清空重新輸入
+                    </button>
+                </div>
+
+                <!-- 模式 A：專業匯入 -->
+                <div id="tab-content-A" class="block animate-fade-in-up">
+                    <div class="bg-amber-50 dark:bg-slate-700/30 p-5 rounded-xl border border-amber-100 dark:border-slate-600">
+                        <p class="text-sm text-stone-600 dark:text-slate-300 mb-4">適合大型活動，或含有姓名、部門等詳細資訊的名單。</p>
+                        <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-stone-500 dark:text-slate-400
+                            file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
+                            file:text-sm file:font-semibold file:bg-amber-200 file:text-amber-900
+                            dark:file:bg-blue-900/50 dark:file:text-blue-300 hover:file:bg-amber-300 dark:hover:file:bg-blue-900/70 cursor-pointer"
+                            onchange="handleFileUpload(event)">
+                    </div>
+                </div>
+
+                <!-- 模式 B：快速座號產生器 -->
+                <div id="tab-content-B" class="hidden animate-fade-in-up">
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <p class="text-sm text-stone-600 dark:text-slate-300 mb-4">輸入班級最大號碼一鍵產生座號，並自動彈出預覽讓您排除請假學生。</p>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <span class="font-bold text-stone-600 dark:text-slate-300">設定最大號碼：</span>
+                            <input type="number" id="quick-seat-count" min="1" max="500" value="30" class="w-24 p-2 border-2 border-blue-200 rounded-lg dark:bg-slate-800 dark:border-slate-600 dark:text-white text-center outline-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
+                            <button onclick="generateQuickSeats()" class="ml-auto px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl shadow-md transition transform hover:scale-105 w-full sm:w-auto">
+                                產生並預覽
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 狀態顯示 -->
+                <div id="file-status" class="text-center mt-6 text-sm text-stone-500 dark:text-slate-400 whitespace-nowrap">尚未匯入或產生名單</div>
+
+                <!-- 預覽按鈕 (匯入成功後顯示) -->
+                <div id="preview-btn-container" class="mt-4 flex flex-col items-center justify-center border-t border-slate-100 dark:border-slate-700 pt-6 hidden gap-4">
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">請確認名單無誤，或直接進入抽籤會場！</p>
+                    <div class="flex flex-wrap justify-center gap-4 w-full">
+                        <button onclick="showPreviewModal()" class="px-8 py-4 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-xl font-bold rounded-full transition shadow-md hover:shadow-lg flex items-center gap-2">
+                            👀 預覽名單 (可修改)
+                        </button>
+                        <button onclick="startLottery()" class="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white text-xl font-bold rounded-full shadow-xl shadow-amber-500/30 transition transform hover:scale-105 flex items-center gap-2 animate-fade-in-up">
+                            🎉 直接進入會場 ➔
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 底部墊高空間 -->
+        <div class="h-10"></div>
+    </main>
+
+    <!-- 視圖 2：抽籤區 (儀式感) -->
+    <main id="view-draw" class="hidden flex-grow flex flex-col items-center p-6 max-w-5xl mx-auto w-full relative">
+        
+        <!-- 當前輪次資訊 -->
+        <div class="text-center mt-4 mb-4">
+            <h2 id="draw-title" class="text-4xl md:text-5xl font-extrabold text-amber-600 dark:text-blue-400 mb-2 drop-shadow-sm">準備開始</h2>
+            <p id="draw-subtitle" class="text-xl text-stone-500 dark:text-slate-400">即將抽出 <span id="draw-count" class="font-bold text-2xl">0</span> 名</p>
+        </div>
+
+        <!-- 動畫與結果展示區 -->
+        <div class="flex-grow w-full flex flex-col items-center justify-start min-h-[400px] relative mt-4">
+            
+            <!-- 毛玻璃全螢幕疊層 (包含所有動畫) -->
+            <div id="draw-overlay" class="hidden fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm transition-all duration-300 flex items-center justify-center">
+                
+                <!-- 洗牌動畫文字 (預設隱藏) -->
+                <div id="shuffle-box" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 100px; line-height: 100px; padding: 0 40px;" class="hidden bg-white/95 dark:bg-slate-800/95 rounded-3xl shadow-2xl text-3xl md:text-5xl font-bold text-amber-600 dark:text-amber-400 tracking-widest text-center w-[90%] max-w-4xl border-4 border-amber-300 dark:border-amber-600 transition-colors duration-200">
+                    [ 快速洗牌中... ]
+                </div>
+                
+                <!-- 老虎機本體 (加寬版本 max-w-3xl, 預設隱藏) -->
+                <div id="slot-machine-container" class="hidden flex-col items-center gap-4 w-full max-w-3xl transform scale-[0.65] sm:scale-90 md:scale-100 origin-center relative z-[50]">
+                    <div class="slot-machine-body w-full">
+                        <div class="bg-yellow-400 border-4 border-yellow-500 rounded-xl mb-6 shadow-inner relative overflow-hidden flex flex-col items-center">
+                            <div class="machine-lights absolute top-0">
+                                <div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div>
+                            </div>
+                            <h2 class="text-5xl font-black text-red-700 py-6 tracking-widest uppercase z-10" style="text-shadow: 2px 2px 0px #fff;">Jackpot</h2>
+                            <div class="machine-lights absolute bottom-0">
+                                <div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div><div class="light-bulb"></div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-300 p-3 rounded-2xl shadow-[inset_0_4px_10px_rgba(0,0,0,0.3)] border-b-4 border-white/40">
+                            <div class="slot-machine-window">
+                                <div class="red-line"></div>
+                                <div id="slot-reel" class="slot-reel"></div>
+                            </div>
+                        </div>
+                        <div class="absolute right-[-28px] top-1/2 transform -translate-y-1/2 z-0 lever-container">
+                            <div class="w-7 h-28 bg-gray-400 rounded-r-xl border-r-4 border-b-4 border-gray-600 shadow-[4px_10px_15px_rgba(0,0,0,0.8)]"></div>
+                            <div id="slot-lever" class="lever-stick absolute left-[6px] top-[-90px] w-4 h-32 bg-gradient-to-r from-gray-200 to-gray-400 rounded-full shadow-lg">
+                                <div class="absolute top-[-30px] left-[-16px] w-14 h-14 bg-red-500 rounded-full border-b-4 border-red-700 shadow-[inset_-5px_-5px_15px_rgba(0,0,0,0.5)]"></div>
+                            </div>
+                        </div>
+                        <div class="mt-8 mb-2 flex justify-between items-end px-6">
+                            <div class="w-8 h-12 bg-gray-800 rounded-full flex justify-center items-center border-2 border-gray-500 shadow-inner">
+                                <div class="w-1.5 h-8 bg-black rounded-full shadow-inner"></div>
+                            </div>
+                            <div class="w-32 h-8 bg-black rounded-b-xl shadow-[inset_0_15px_15px_rgba(0,0,0,0.9)] border-b-2 border-gray-500 relative flex justify-center items-end pb-1">
+                                <div class="w-20 h-2 bg-gray-800 rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 結果卡片容器 -->
+            <div id="results-container" class="w-full mt-4 place-items-center relative z-10">
+                <!-- 結果會塞在這裡 -->
+            </div>
+        </div>
+
+        <!-- 抽籤控制按鈕與結束功能區 -->
+        <div class="mt-10 mb-8 flex flex-wrap justify-center items-center gap-4 z-10 w-full">
+            <button id="btn-prev-round" onclick="navigateRound('prev')" class="px-6 py-3 bg-amber-200 dark:bg-slate-700 text-amber-900 dark:text-slate-200 rounded-full font-bold hover:bg-amber-300 dark:hover:bg-slate-600 transition hidden">
+                ⭠ 上一輪
+            </button>
+            <button id="btn-action-draw" onclick="handleDrawAction()" class="px-12 py-4 bg-red-500 hover:bg-red-600 text-white text-2xl font-bold rounded-full shadow-xl shadow-red-500/30 transition transform hover:scale-105 hover:-translate-y-1">
+                開始抽籤！
+            </button>
+            <button id="btn-next-round" onclick="navigateRound('next')" class="px-6 py-3 bg-amber-200 dark:bg-slate-700 text-amber-900 dark:text-slate-200 rounded-full font-bold hover:bg-amber-300 dark:hover:bg-slate-600 transition hidden">
+                下一輪 ⭢
+            </button>
+
+            <!-- 匯出與清空專區 -->
+            <div id="export-section" class="hidden flex items-center gap-3 animate-fade-in-up">
+                <button onclick="exportAllInOneExcel()" class="px-6 py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-full shadow-md transition transform hover:scale-105 flex items-center gap-2 text-lg">
+                    📥 下載中籤分頁和總表
+                </button>
+                <button onclick="showResetConfirm()" class="px-6 py-4 bg-yellow-400 hover:bg-yellow-500 dark:bg-yellow-500 dark:hover:bg-yellow-600 text-yellow-900 dark:text-slate-900 font-bold rounded-full shadow-md transition transform hover:scale-105 flex items-center gap-2 text-lg">
+                    🗑️ 重設抽籤名單
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal 1: 獎項預覽滿版全螢幕彈窗 -->
+    <div id="prize-modal" class="hidden fixed inset-0 z-[200] bg-amber-50/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col opacity-0 transition-opacity duration-300 w-screen h-screen">
+        <div class="w-full flex justify-between items-center p-6 border-b border-amber-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-800/50 shadow-sm">
+            <h3 class="text-2xl md:text-3xl font-bold text-amber-600 dark:text-amber-400 flex items-center gap-3">
+                🎁 今日抽籤獎項一覽
+            </h3>
+            <button onclick="closePrizePreviewModal()" class="text-slate-400 hover:text-red-500 text-4xl transition">&times;</button>
+        </div>
+        
+        <div class="p-8 overflow-y-auto flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 content-start" id="prize-grid">
+            <!-- 獎項將由 JS 塞入 -->
+        </div>
+        
+        <div class="p-6 border-t border-amber-200/50 dark:border-slate-700/50 flex justify-center bg-white/50 dark:bg-slate-800/50 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+            <button onclick="closePrizePreviewModal()" class="px-12 py-4 bg-amber-500 hover:bg-amber-600 text-white text-xl font-bold rounded-full shadow-lg transition transform hover:scale-105 flex items-center gap-2">
+                ✅ 確認無誤，返回設定
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 2: 滿版全螢幕名單預覽彈窗 -->
+    <div id="preview-modal" class="hidden fixed inset-0 z-[200] bg-amber-50/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col opacity-0 transition-opacity duration-300 w-screen h-screen">
+        <div class="w-full flex justify-between items-center p-6 border-b border-amber-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-800/50 shadow-sm flex-wrap gap-4">
+            <h3 class="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3 flex-wrap">
+                👀 參與名單預覽 
+                <span class="text-sm md:text-lg font-normal text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700 bg-amber-100/50 dark:bg-slate-800 px-3 py-1 rounded-full whitespace-nowrap">
+                    有效: <span id="preview-valid-count" class="font-bold text-green-600 dark:text-green-400">0</span> / 總共: <span id="preview-total-count" class="font-bold">0</span> 人
+                </span>
+                <span class="text-sm text-slate-500 dark:text-slate-400 font-normal ml-2">※ 點擊名單可排除請假人員</span>
+            </h3>
+            <button onclick="closePreviewModal()" class="text-slate-400 hover:text-red-500 text-4xl transition">&times;</button>
+        </div>
+        
+        <div class="p-8 overflow-y-auto flex-grow grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="preview-grid">
+            <!-- 名單會由 JS 塞入 -->
+        </div>
+        
+        <div class="p-6 border-t border-amber-200/50 dark:border-slate-700/50 flex justify-center gap-4 bg-white/50 dark:bg-slate-800/50 shadow-[0_-10px_20px_rgba(0,0,0,0.02)] flex-wrap">
+            <button onclick="resetPreviewExclusions()" class="px-8 py-4 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-lg font-bold rounded-full transition shadow-md">
+                🔄 重設名單
+            </button>
+            <button onclick="confirmPreviewExclusions()" class="px-12 py-4 bg-green-500 hover:bg-green-600 text-white text-xl font-bold rounded-full shadow-lg transition transform hover:scale-105 flex items-center gap-2">
+                ✅ 確認更新名單
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 3: 重抽防呆二次確認彈窗 -->
+    <div id="confirm-redraw-modal" class="hidden fixed inset-0 z-[300] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center text-center transform scale-95 transition-transform duration-300">
+            <div class="text-6xl mb-4 animate-bounce">⚠️</div>
+            <h3 class="text-2xl font-bold text-slate-800 dark:text-white mb-2">確定要重抽本輪嗎？</h3>
+            <p class="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+                這將會清除本輪目前的得獎名單，<br>名單將退回抽籤池，且無法復原！
+            </p>
+            <div class="flex gap-4 w-full">
+                <button onclick="closeRedrawConfirm()" class="flex-1 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition">
+                    取消 (安全返回)
+                </button>
+                <button onclick="processRedraw()" class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-md transition">
+                    確定重抽
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: 清空名單防呆確認彈窗 -->
+    <div id="confirm-reset-modal" class="hidden fixed inset-0 z-[300] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center text-center transform scale-95 transition-transform duration-300">
+            <div class="text-6xl mb-4 animate-bounce">🗑️</div>
+            <h3 class="text-2xl font-bold text-slate-800 dark:text-white mb-2">確定要清空名單嗎？</h3>
+            <p class="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+                請確認您已<strong class="text-red-500 text-lg">下載 Excel 報表</strong>！<br><br>這將會清除所有抽籤紀錄與已匯入的名單，<br>但您的<strong class="text-red-500 text-lg">「獎項」與「特效設定」會被保留。</strong>
+            </p>
+            <div class="flex gap-4 w-full">
+                <button onclick="closeResetConfirm()" class="flex-1 py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition">
+                    取消
+                </button>
+                <button onclick="processReset()" class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-md transition">
+                    確定清空
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 核心防護機制 1：密碼學亂數引擎 (取代 Math.random 保證絕對公平) ---
+        function getCryptoRandom() {
+            const array = new Uint32Array(1);
+            window.crypto.getRandomValues(array);
+            return array[0] / (0xFFFFFFFF + 1);
+        }
+
+        // --- 核心防護機制 2：防 F5 重新整理悲劇 ---
+        window.addEventListener('beforeunload', function (e) {
+            if (originalData.length > 0 || winnersRecord.length > 0) {
+                e.preventDefault();
+                e.returnValue = ''; 
+            }
+        });
+
+        // --- 核心資料狀態 ---
+        let originalData = []; 
+        let currentPool = [];  
+        let winnersRecord = [];
+        let rounds = [{ id: 1, name: '頭獎', count: 1 }]; 
+        let currentRoundIndex = 0; 
+        let isDrawing = false; 
+        let isRedrawState = false; 
+        let confettiLoaded = false; 
+        let excludedUids = new Set(); // 核心防護機制 3：使用 UUID 防止同名同姓衝突
+        let isReverseDraw = false; 
+        let inputModeLocked = false; 
+        let celebrationIntervals = []; 
+
+        // --- 懸浮立體手風琴收折邏輯 ---
+        function toggleSection(secId, isInit = false) {
+            const targetContent = document.getElementById('content-sec-' + secId);
+            const isCurrentlyOpen = !targetContent.classList.contains('hidden');
+
+            if (isCurrentlyOpen) {
+                if (isInit) return; 
+                const section = document.getElementById('section-' + secId);
+                section.classList.remove('animate-shake');
+                void section.offsetWidth; 
+                section.classList.add('animate-shake');
+                return;
+            }
+
+            for(let i=1; i<=3; i++) {
+                const content = document.getElementById('content-sec-' + i);
+                const icon = document.getElementById('icon-sec-' + i);
+                const section = document.getElementById('section-' + i);
+
+                if(i === secId) {
+                    content.classList.remove('hidden');
+                    icon.classList.remove('rotate-[-90deg]');
+                    section.classList.remove('opacity-60', 'scale-[0.98]', 'shadow-sm', 'border-amber-200', 'dark:border-slate-700', 'z-0');
+                    section.classList.add('opacity-100', 'scale-[1.02]', 'shadow-2xl', 'ring-2', 'ring-amber-400', 'dark:ring-amber-500', 'z-10', 'border-transparent');
+                } else {
+                    content.classList.add('hidden');
+                    icon.classList.add('rotate-[-90deg]');
+                    section.classList.remove('opacity-100', 'scale-[1.02]', 'shadow-2xl', 'ring-2', 'ring-amber-400', 'dark:ring-amber-500', 'z-10', 'border-transparent');
+                    section.classList.add('opacity-60', 'scale-[0.98]', 'shadow-sm', 'border-amber-200', 'dark:border-slate-700', 'z-0');
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            toggleSection(1, true); 
+            renderRounds();
+        });
+
+        // ════════════════════════════════════════════════════════════════
+        // --- 終極音效雙引擎 ---
+        // ════════════════════════════════════════════════════════════════
+        const audioManager = {
+            ctx: null,
+            init() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            },
+            play(type) {
+                const isMuted = document.getElementById('setting-mute')?.checked;
+                if (isMuted || !this.ctx) return;
+                
+                const t = this.ctx.currentTime;
+                
+                if (type === 'flip') {
+                    const bufferSize = this.ctx.sampleRate * 0.05; 
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1; 
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const noiseFilter = this.ctx.createBiquadFilter();
+                    noiseFilter.type = 'bandpass'; 
+                    noiseFilter.frequency.value = 600; 
+                    noiseFilter.Q.value = 1.0; 
+                    const noiseGain = this.ctx.createGain();
+                    noiseGain.gain.setValueAtTime(1.5, t);
+                    noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+                    noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(this.ctx.destination);
+                    noise.start(t);
+                }
+                else if (type === 'pulse') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, t);
+                    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.02);
+                    gain.gain.setValueAtTime(0.03, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(t); osc.stop(t+0.02);
+                }
+                else if (type === 'matrix') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(1500 + Math.random()*2000, t);
+                    gain.gain.setValueAtTime(0.03, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(t); osc.stop(t+0.03);
+                }
+                else if (type === 'tada') {
+                    [261.63, 329.63, 392.00, 523.25].forEach((freq, i) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.value = freq;
+                        const filter = this.ctx.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(800, t);
+                        filter.frequency.linearRampToValueAtTime(2500, t + 0.2);
+                        filter.frequency.exponentialRampToValueAtTime(800, t + 1.5);
+                        gain.gain.setValueAtTime(0, t);
+                        gain.gain.linearRampToValueAtTime(0.15, t + 0.05 + i*0.02); 
+                        gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+                        osc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+                        osc.start(t); osc.stop(t + 2);
+                    });
+                }
+                else if (type === 'firework') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800 + Math.random()*400, t);
+                    osc.frequency.exponentialRampToValueAtTime(200, t + 0.4); 
+                    gain.gain.setValueAtTime(0.1, t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(t); osc.stop(t + 0.4);
+
+                    setTimeout(() => {
+                        if(!this.ctx) return;
+                        const t2 = this.ctx.currentTime;
+                        const bufferSize = this.ctx.sampleRate * 1.2;
+                        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                        const data = buffer.getChannelData(0);
+                        for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                        const noise = this.ctx.createBufferSource();
+                        noise.buffer = buffer;
+                        const filter = this.ctx.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(800, t2);
+                        filter.frequency.exponentialRampToValueAtTime(50, t2 + 1.2);
+                        const ngain = this.ctx.createGain();
+                        ngain.gain.setValueAtTime(0.6, t2);
+                        ngain.gain.exponentialRampToValueAtTime(0.001, t2 + 1.2);
+                        noise.connect(filter); filter.connect(ngain); ngain.connect(this.ctx.destination);
+                        noise.start(t2);
+                    }, 350); 
+                }
+                else if (type === 'coins') {
+                    for(let i=0; i<15; i++) {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = Math.random() > 0.5 ? 'sine' : 'triangle';
+                        osc.frequency.setValueAtTime(2000 + Math.random() * 4000, t + i * 0.04 + Math.random()*0.02);
+                        gain.gain.setValueAtTime(0, t);
+                        gain.gain.setValueAtTime(0.06, t + i * 0.04);
+                        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.04 + 0.15);
+                        const filter = this.ctx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.value = 3000 + Math.random() * 2000;
+                        filter.Q.value = 3;
+                        osc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+                        osc.start(t + i * 0.04); osc.stop(t + i * 0.04 + 0.15);
+                    }
+                }
+            },
+            
+            // 加入懸念判斷與動態時間
+            playSlotAudio(isTease = false, duration = 4.0) {
+                const isMuted = document.getElementById('setting-mute')?.checked;
+                if (isMuted) return;
+                this.init();
+                if (!this.ctx) return;
+                
+                const ctx = this.ctx;
+                const now = ctx.currentTime;
+
+                const oscThud = ctx.createOscillator();
+                const gainThud = ctx.createGain();
+                oscThud.type = 'triangle';
+                oscThud.frequency.setValueAtTime(150, now);
+                oscThud.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+                gainThud.gain.setValueAtTime(0.8, now);
+                gainThud.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                oscThud.connect(gainThud); gainThud.connect(ctx.destination);
+                oscThud.start(now); oscThud.stop(now + 0.3);
+
+                let tickTime = now + 0.1;
+                let delay = 0.04; 
+                // 懸念版因為時間長，把 delay 增長率調低，讓它後面能發出非常慢的「喀...喀...」
+                const multiplier = isTease ? 1.055 : 1.08; 
+                const maxTicks = isTease ? 100 : 45;
+                
+                for (let i = 0; i < maxTicks; i++) {
+                    if (tickTime > now + duration - 0.2) break; 
+                    const oscTick = ctx.createOscillator();
+                    const gainTick = ctx.createGain();
+                    oscTick.type = 'square';
+                    oscTick.frequency.setValueAtTime(800 + Math.random()*200, tickTime);
+                    oscTick.frequency.exponentialRampToValueAtTime(200, tickTime + 0.03);
+                    gainTick.gain.setValueAtTime(0.15, tickTime);
+                    gainTick.gain.exponentialRampToValueAtTime(0.01, tickTime + 0.03);
+                    oscTick.connect(gainTick); gainTick.connect(ctx.destination);
+                    oscTick.start(tickTime); oscTick.stop(tickTime + 0.03);
+                    
+                    tickTime += delay; 
+                    delay *= multiplier; 
+                }
+
+                // 中獎歡呼聲依照動態時間觸發
+                const endT = now + duration; 
+                [0, 0.15, 0.3, 0.5, 0.7].forEach((offset, idx) => {
+                    const oscDing = ctx.createOscillator();
+                    const gainDing = ctx.createGain();
+                    oscDing.type = 'sine';
+                    const freqs = [1046.50, 1318.51, 1567.98, 2093.00, 2637.02]; 
+                    oscDing.frequency.setValueAtTime(freqs[idx] || 2093, endT + offset);
+                    gainDing.gain.setValueAtTime(0.3, endT + offset);
+                    gainDing.gain.exponentialRampToValueAtTime(0.01, endT + offset + 1.5);
+                    oscDing.connect(gainDing); gainDing.connect(ctx.destination);
+                    oscDing.start(endT + offset); oscDing.stop(endT + offset + 2);
+                });
+            },
+
+            shuffleInterval: null,
+            playShuffle(type) {
+                const isMuted = document.getElementById('setting-mute')?.checked;
+                this.stopShuffle();
+                if (isMuted) return;
+
+                let intervalMs = type === 'matrix' ? 50 : 60;
+                this.shuffleInterval = setInterval(() => {
+                    this.play(type);
+                }, intervalMs);
+            },
+            stopShuffle() {
+                if (this.shuffleInterval) clearInterval(this.shuffleInterval);
+            }
+        };
+
+        // --- 動畫清場總控制 ---
+        function clearCelebrations() {
+            celebrationIntervals.forEach(clearInterval);
+            celebrationIntervals = [];
+            if (typeof confetti !== 'undefined') {
+                confetti.reset();
+            }
+        }
+
+        // --- 全域提示訊息 (Toast) ---
+        function showToast(message, type = 'error') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-500' : 'bg-green-500';
+            // 核心防護機制 4：全面使用 DOM API (textContent) 代替 innerHTML 防禦 XSS
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl font-bold text-lg animate-fade-in-up text-center`;
+            toast.textContent = message; 
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-20px)';
+                toast.style.transition = 'all 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // --- 事件綁定 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const excludeToggle = document.getElementById('setting-exclude');
+            const toggleBg = document.getElementById('toggle-bg');
+            const toggleDot = document.getElementById('toggle-dot');
+            const toggleTextOn = document.getElementById('toggle-text-on');
+            const toggleTextOff = document.getElementById('toggle-text-off');
+
+            excludeToggle.addEventListener('change', (e) => {
+                if(e.target.checked) {
+                    toggleDot.classList.add('translate-x-8');
+                    toggleBg.classList.add('bg-blue-500', 'dark:bg-blue-600');
+                    toggleBg.classList.remove('bg-slate-300', 'dark:bg-slate-600');
+                    toggleTextOn.classList.remove('hidden');
+                    toggleTextOff.classList.add('hidden');
+                } else {
+                    toggleDot.classList.remove('translate-x-8');
+                    toggleBg.classList.remove('bg-blue-500', 'dark:bg-blue-600');
+                    toggleBg.classList.add('bg-slate-300', 'dark:bg-slate-600');
+                    toggleTextOn.classList.add('hidden');
+                    toggleTextOff.classList.remove('hidden');
+                }
+            });
+        });
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.classList.toggle('dark');
+            const btn = document.getElementById('btn-theme');
+            btn.innerText = html.classList.contains('dark') ? '☀️' : '🌙';
+        }
+
+        // 單選頁籤切換邏輯
+        function switchTab(tabId) {
+            if (inputModeLocked) {
+                showToast('🔒 已鎖定輸入模式。若要更改，請先點擊右側的「🗑️ 清空重新輸入」！');
+                return;
+            }
+
+            const btnA = document.getElementById('tab-btn-A');
+            const btnB = document.getElementById('tab-btn-B');
+            const contentA = document.getElementById('tab-content-A');
+            const contentB = document.getElementById('tab-content-B');
+
+            const activeClassBtn = ['bg-white', 'dark:bg-slate-600', 'text-amber-600', 'dark:text-amber-400', 'shadow-sm', 'font-bold'];
+            const inactiveClassBtn = ['text-slate-500', 'dark:text-slate-400', 'hover:text-slate-700', 'dark:hover:text-slate-200', 'font-medium'];
+
+            btnA.classList.remove(...activeClassBtn, ...inactiveClassBtn);
+            btnB.classList.remove(...activeClassBtn, ...inactiveClassBtn);
+
+            if (tabId === 'A') {
+                contentA.classList.remove('hidden');
+                contentA.classList.add('block');
+                contentB.classList.remove('block');
+                contentB.classList.add('hidden');
+                btnA.classList.add(...activeClassBtn);
+                btnB.classList.add(...inactiveClassBtn);
+            } else {
+                contentB.classList.remove('hidden');
+                contentB.classList.add('block');
+                contentA.classList.remove('block');
+                contentA.classList.add('hidden');
+                btnB.classList.add(...activeClassBtn);
+                btnA.classList.add(...inactiveClassBtn);
+            }
+        }
+
+        function lockInputMode(lockedTabId) {
+            inputModeLocked = true;
+            const btnA = document.getElementById('tab-btn-A');
+            const btnB = document.getElementById('tab-btn-B');
+            if (lockedTabId === 'A') {
+                btnB.classList.add('opacity-30', 'cursor-not-allowed');
+            } else {
+                btnA.classList.add('opacity-30', 'cursor-not-allowed');
+            }
+        }
+
+        function clearStep3List() {
+            originalData = [];
+            currentPool = [];
+            excludedUids.clear();
+            inputModeLocked = false;
+            
+            document.getElementById('file-upload').value = '';
+            document.getElementById('quick-seat-count').value = '30';
+            document.getElementById('file-status').innerText = '尚未匯入或產生名單';
+            document.getElementById('preview-btn-container').classList.add('hidden');
+            
+            const btnA = document.getElementById('tab-btn-A');
+            const btnB = document.getElementById('tab-btn-B');
+            btnA.classList.remove('opacity-30', 'cursor-not-allowed');
+            btnB.classList.remove('opacity-30', 'cursor-not-allowed');
+            
+            showToast('🔄 輸入區已清空，可自由切換模式！', 'success');
+        }
+
+        // --- Step 1: 匯入與下載獎項設定 (Excel) ---
+        function downloadConfigTemplate() {
+            const wsData = [
+                { "活動名稱": "2024 年終大抽獎", "獎項名稱": "特獎 - iPhone 15", "抽出名額": 1 },
+                { "活動名稱": "", "獎項名稱": "頭獎 - Dyson 吹風機", "抽出名額": 2 },
+                { "活動名稱": "", "獎項名稱": "普獎 - 1000元超商禮券", "抽出名額": 10 }
+            ];
+            const ws = XLSX.utils.json_to_sheet(wsData);
+            ws['!cols'] = [{wch: 25}, {wch: 25}, {wch: 15}];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "獎項設定");
+            XLSX.writeFile(wb, "抽籤獎項設定樣板.xlsx");
+        }
+
+        function handleConfigUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    
+                    if (jsonData.length > 0) {
+                        const hasRequiredColumns = jsonData.some(row => row['獎項名稱'] !== undefined && row['抽出名額'] !== undefined);
+                        if (!hasRequiredColumns) {
+                            showToast('❌ 匯入失敗：格式不符，請確認您上傳的是「獎項設定檔」而不是名單！');
+                            document.getElementById('config-upload').value = '';
+                            return;
+                        }
+
+                        if(jsonData[0]['活動名稱']) document.getElementById('main-title').value = jsonData[0]['活動名稱']; 
+                        
+                        rounds = [];
+                        let newId = 1;
+                        jsonData.forEach(row => {
+                            const name = row['獎項名稱'];
+                            const count = parseInt(row['抽出名額']);
+                            if (name && count) {
+                                rounds.push({ id: newId++, name: String(name), count: count });
+                            }
+                        });
+                        if(rounds.length === 0) rounds = [{ id: 1, name: '頭獎', count: 1 }];
+                        renderRounds();
+                        showToast('✅ 獎項設定檔匯入成功！', 'success');
+                    }
+                } catch(err) {
+                    showToast('讀取設定檔失敗，請確認檔案格式。');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = ''; 
+        }
+
+        // --- 獎項預覽彈窗 (防 XSS：使用 DOM API) ---
+        function showPrizePreviewModal() {
+            if(rounds.length === 0) return;
+            const modal = document.getElementById('prize-modal');
+            const grid = document.getElementById('prize-grid');
+            grid.innerHTML = '';
+            
+            rounds.forEach((round, index) => {
+                const div = document.createElement('div');
+                div.className = 'bg-white dark:bg-slate-700/80 p-6 rounded-2xl border border-amber-100 dark:border-slate-600 flex flex-col justify-center items-center shadow-md hover:shadow-lg transition hover:-translate-y-1 hover:border-amber-400 gap-4 text-center';
+                
+                const topDiv = document.createElement('div');
+                topDiv.className = 'flex flex-col items-center gap-2';
+                
+                const indexSpan = document.createElement('span');
+                indexSpan.className = 'bg-amber-500 text-white font-bold text-xl w-12 h-12 flex items-center justify-center rounded-full shadow-inner';
+                indexSpan.textContent = index + 1;
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'text-2xl font-bold text-slate-700 dark:text-slate-100 mt-2';
+                nameSpan.textContent = round.name; // 安全插入純文字
+                
+                topDiv.appendChild(indexSpan);
+                topDiv.appendChild(nameSpan);
+                
+                const bottomDiv = document.createElement('div');
+                bottomDiv.className = 'text-xl font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-slate-800 px-6 py-2 rounded-full w-full';
+                bottomDiv.innerHTML = `共抽出 <span class="text-3xl">${round.count}</span> 名`; // count 是數字，安全
+                
+                div.appendChild(topDiv);
+                div.appendChild(bottomDiv);
+                grid.appendChild(div);
+            });
+
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
+        }
+
+        function closePrizePreviewModal() {
+            const modal = document.getElementById('prize-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        // --- 輪次設定 (防 XSS：使用 DOM API) ---
+        function addRound() {
+            const newId = rounds.length > 0 ? Math.max(...rounds.map(r => r.id)) + 1 : 1;
+            rounds.push({ id: newId, name: `獎項 ${newId}`, count: 1 });
+            renderRounds();
+        }
+
+        function removeRound(id) {
+            rounds = rounds.filter(r => r.id !== id);
+            renderRounds();
+        }
+
+        function updateRound(id, field, value) {
+            const round = rounds.find(r => r.id === id);
+            if (round) round[field] = field === 'count' ? parseInt(value) || 1 : value;
+        }
+
+        function renderRounds() {
+            const container = document.getElementById('rounds-container');
+            container.innerHTML = '';
+            rounds.forEach((round, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex gap-2 items-center bg-[#fdf9f1] dark:bg-slate-700/50 p-3 rounded-lg border border-amber-200 dark:border-slate-600';
+                
+                // 靜態 HTML 架構
+                div.innerHTML = `
+                    <span class="font-bold text-amber-800/50 dark:text-slate-400 w-6">${index + 1}.</span>
+                    <input type="text" placeholder="獎項/輪次名稱" class="round-name-input flex-grow p-2 border border-amber-200 rounded dark:bg-slate-800 dark:border-slate-600 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    <span class="text-stone-600 dark:text-slate-400">抽出</span>
+                    <input type="number" min="1" class="round-count-input w-20 p-2 border border-amber-200 rounded dark:bg-slate-800 dark:border-slate-600 dark:text-white text-center outline-none focus:ring-2 focus:ring-amber-500">
+                    <span class="text-stone-600 dark:text-slate-400">名</span>
+                    <button class="remove-btn ml-2 p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition" title="刪除">✖</button>
+                `;
+                
+                // 動態綁定屬性與事件，徹底杜絕字串拼接漏洞
+                const nameInput = div.querySelector('.round-name-input');
+                nameInput.value = round.name;
+                nameInput.onchange = function() { updateRound(round.id, 'name', this.value); };
+
+                const countInput = div.querySelector('.round-count-input');
+                countInput.value = round.count;
+                countInput.onchange = function() { updateRound(round.id, 'count', this.value); };
+
+                const removeBtn = div.querySelector('.remove-btn');
+                removeBtn.onclick = function() { removeRound(round.id); };
+
+                container.appendChild(div);
+            });
+        }
+
+        // --- Step 2: 解鎖特效與音效 ---
+        function saveSettingsAndLoadEffects() {
+            const celeb = document.getElementById('select-celebration').value;
+            audioManager.init(); 
+
+            if (['confetti', 'fireworks', 'stars'].includes(celeb) && !confettiLoaded) {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
+                script.onload = () => { confettiLoaded = true; };
+                document.head.appendChild(script);
+            }
+            
+            showToast('✅ 特效與音效已準備就緒！請匯入參與名單。', 'success');
+            toggleSection(3); 
+        }
+
+        // --- Step 3: 匯入參與名單與預覽 ---
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const arrayBuffer = e.target.result;
+                    let workbook;
+                    
+                    if (file.name.toLowerCase().endsWith('.csv')) {
+                        const uint8Array = new Uint8Array(arrayBuffer);
+                        let text = new TextDecoder('utf-8').decode(uint8Array);
+                        if (text.includes('')) {
+                            text = new TextDecoder('big5').decode(uint8Array);
+                        }
+                        workbook = XLSX.read(text, { type: 'string' });
+                    } else {
+                        workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                    }
+                    
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    
+                    originalData = rawData
+                        .filter(row => Object.values(row).some(val => val !== "" && val !== null))
+                        .map(row => ({ ...row, _uid: crypto.randomUUID() })); // 發配 UUID
+                        
+                    excludedUids.clear();
+
+                    document.getElementById('file-status').innerHTML = 
+                        `<span class="text-green-600 dark:text-green-400 font-bold">✅ 成功讀取 ${originalData.length} 筆資料</span>`;
+                    
+                    showToast(`成功匯入 ${originalData.length} 筆名單！`, 'success');
+                    document.getElementById('preview-btn-container').classList.remove('hidden');
+                    
+                    lockInputMode('A');
+
+                } catch (err) {
+                    showToast('讀取檔案失敗，請確定是正確的 Excel 或 CSV 檔案。');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- Step 3: 快速產生課堂座號 ---
+        function generateQuickSeats() {
+            const count = parseInt(document.getElementById('quick-seat-count').value);
+            if (isNaN(count) || count <= 0) {
+                showToast('請輸入有效的人數！');
+                return;
+            }
+
+            originalData = [];
+            for (let i = 1; i <= count; i++) {
+                originalData.push({ "名單": `${i}號`, _uid: crypto.randomUUID() });
+            }
+            excludedUids.clear();
+
+            document.getElementById('file-status').innerHTML = 
+                `<span class="text-green-600 dark:text-green-400 font-bold">✅ 成功產生 ${count} 筆座號</span>`;
+            
+            showToast(`成功產生 ${count} 筆座號！請點擊排除請假名單。`, 'success');
+            document.getElementById('preview-btn-container').classList.remove('hidden');
+            
+            lockInputMode('B');
+            showPreviewModal();
+        }
+
+        // --- 參與名單滿版預覽彈窗 (防 XSS) ---
+        function showPreviewModal() {
+            if(originalData.length === 0) { showToast('請先匯入或產生名單！'); return; }
+            
+            const modal = document.getElementById('preview-modal');
+            const grid = document.getElementById('preview-grid');
+            
+            document.getElementById('preview-total-count').innerText = originalData.length;
+            updatePreviewValidCount();
+            grid.innerHTML = '';
+            
+            originalData.forEach((item) => {
+                const div = document.createElement('div');
+                const uid = item._uid;
+                const isExcluded = excludedUids.has(uid);
+                
+                const displayEntries = Object.entries(item).filter(([k]) => k !== '_uid');
+                const name = displayEntries[displayEntries.length - 1][1];
+                const subText = displayEntries.slice(0, -1).map(e => e[1]).join(' ');
+                const valuesString = displayEntries.map(e => e[1]).join(' | ');
+                
+                let baseClasses = 'p-3 rounded-xl flex flex-col items-center justify-center min-h-[5rem] break-words border shadow-sm transition hover:shadow-md cursor-pointer select-none ';
+                
+                const subDiv = document.createElement('div');
+                subDiv.className = 'text-xs opacity-70 mb-1 w-full truncate text-center';
+                subDiv.textContent = subText;
+                
+                const mainDiv = document.createElement('div');
+                mainDiv.className = 'text-base font-bold w-full text-center';
+
+                if (isExcluded) {
+                    div.className = baseClasses + 'bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 border-red-300 dark:border-red-700 line-through opacity-80';
+                    div.title = valuesString + ' (已排除)';
+                    mainDiv.textContent = '❌ ' + name;
+                } else {
+                    div.className = baseClasses + 'bg-white dark:bg-slate-700/80 text-slate-800 dark:text-slate-100 border-amber-100 dark:border-slate-600 hover:-translate-y-1 hover:border-amber-400';
+                    div.title = valuesString + ' (點擊排除)';
+                    mainDiv.textContent = name;
+                }
+                
+                div.appendChild(subDiv);
+                div.appendChild(mainDiv);
+                div.onclick = () => toggleExclusion(uid, div, name, valuesString);
+                
+                grid.appendChild(div);
+            });
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
+        }
+
+        function toggleExclusion(uid, element, name, valuesString) {
+            const mainDiv = element.lastElementChild;
+            if (excludedUids.has(uid)) {
+                excludedUids.delete(uid);
+                element.className = 'p-3 rounded-xl flex flex-col items-center justify-center min-h-[5rem] break-words border shadow-sm transition hover:shadow-md cursor-pointer select-none bg-white dark:bg-slate-700/80 text-slate-800 dark:text-slate-100 border-amber-100 dark:border-slate-600 hover:-translate-y-1 hover:border-amber-400';
+                element.title = valuesString + ' (點擊排除)';
+                if (mainDiv) mainDiv.textContent = name;
+                else element.textContent = name;
+            } else {
+                excludedUids.add(uid);
+                element.className = 'p-3 rounded-xl flex flex-col items-center justify-center min-h-[5rem] break-words border shadow-sm transition hover:shadow-md cursor-pointer select-none bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 border-red-300 dark:border-red-700 line-through opacity-80';
+                element.title = valuesString + ' (已排除)';
+                if (mainDiv) mainDiv.textContent = '❌ ' + name;
+                else element.textContent = '❌ ' + name;
+            }
+            updatePreviewValidCount();
+        }
+
+        function updatePreviewValidCount() {
+            const validCount = originalData.length - excludedUids.size;
+            document.getElementById('preview-valid-count').innerText = validCount;
+        }
+
+        function resetPreviewExclusions() {
+            excludedUids.clear();
+            showPreviewModal(); 
+        }
+
+        function confirmPreviewExclusions() {
+            const validCount = originalData.length - excludedUids.size;
+            showToast(`✅ 名單已更新！目前有效參與人數：${validCount} 人`, 'success');
+            
+            let statusText = `✅ 成功讀取 ${originalData.length} 筆資料`;
+            if (excludedUids.size > 0) {
+                statusText += ` (已排除 ${excludedUids.size} 人，共 ${validCount} 人參與)`;
+            }
+            document.getElementById('file-status').innerHTML = `<span class="text-green-600 dark:text-green-400 font-bold">${statusText}</span>`;
+                
+            closePreviewModal();
+        }
+
+        function closePreviewModal() {
+            const modal = document.getElementById('preview-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+        }
+
+        function startLottery() {
+            isReverseDraw = document.getElementById('setting-reverse-draw')?.checked || false;
+            
+            const totalDrawCount = rounds.reduce((sum, r) => sum + r.count, 0);
+            const excludeWinners = document.getElementById('setting-exclude').checked;
+            const validCount = originalData.length - excludedUids.size;
+            
+            if (excludeWinners && totalDrawCount > validCount) {
+                showToast(`警告：總抽出人數 (${totalDrawCount}) 大於實際參與人數 (${validCount})。請調整人數或關閉「排除名單」。`);
+                return;
+            }
+            
+            audioManager.init(); 
+            switchView('draw');
+        }
+
+        // --- 抽籤會場邏輯 (防 XSS) ---
+        function updateDrawUI() {
+            const round = rounds[currentRoundIndex];
+            document.getElementById('draw-title').textContent = round.name; // 防 XSS
+            document.getElementById('draw-count').textContent = round.count;
+            
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = '';
+            document.getElementById('draw-overlay').classList.add('hidden');
+            
+            const roundWinners = winnersRecord.filter(r => r.roundName === round.name);
+            const hasDrawn = roundWinners.length > 0;
+
+            if (hasDrawn) {
+                isRedrawState = true;
+                document.getElementById('btn-action-draw').innerText = '重抽本輪';
+                
+                const isMany = round.count > 5;
+                if (round.count <= 5) {
+                    resultsContainer.className = 'w-full flex flex-col gap-4 mt-4 items-center justify-center max-w-3xl';
+                } else if (round.count <= 10) {
+                    resultsContainer.className = 'w-full mt-4 grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto px-2 pb-4';
+                } else if (round.count <= 15) {
+                    resultsContainer.className = 'w-full mt-4 grid grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto px-2 pb-4';
+                } else {
+                    resultsContainer.className = 'w-full mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[50vh] overflow-y-auto px-2 pb-4';
+                }
+
+                roundWinners.forEach(w => {
+                    appendWinnerCard(w.data, isMany, resultsContainer);
+                });
+                
+                const cards = resultsContainer.querySelectorAll('.result-card');
+                cards.forEach(c => { c.style.opacity = 1; c.style.transform = 'none'; c.style.animation = 'none'; });
+            } else {
+                isRedrawState = false; 
+                resultsContainer.className = 'w-full mt-4 place-items-center relative z-10';
+                document.getElementById('btn-action-draw').innerText = '開始抽籤！';
+            }
+
+            document.getElementById('btn-action-draw').disabled = false;
+
+            const btnPrev = document.getElementById('btn-prev-round');
+            const btnNext = document.getElementById('btn-next-round');
+            
+            const isFirstStep = isReverseDraw ? (currentRoundIndex === rounds.length - 1) : (currentRoundIndex === 0);
+            const isLastStep = isReverseDraw ? (currentRoundIndex === 0) : (currentRoundIndex === rounds.length - 1);
+
+            btnPrev.style.display = isFirstStep ? 'none' : 'block';
+            
+            if (!isLastStep && hasDrawn) {
+                btnNext.style.display = 'block';
+            } else {
+                btnNext.style.display = 'none';
+            }
+
+            if (isLastStep && hasDrawn) {
+                document.getElementById('export-section').classList.remove('hidden');
+            } else {
+                document.getElementById('export-section').classList.add('hidden');
+            }
+        }
+
+        function navigateRound(direction) {
+            if(isDrawing) return;
+            clearCelebrations(); 
+            
+            if (direction === 'next') {
+                currentRoundIndex += isReverseDraw ? -1 : 1;
+            } else {
+                currentRoundIndex += isReverseDraw ? 1 : -1;
+            }
+            updateDrawUI();
+        }
+
+        function showResetConfirm() {
+            const modal = document.getElementById('confirm-reset-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.firstElementChild.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeResetConfirm() {
+            const modal = document.getElementById('confirm-reset-modal');
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function processReset() {
+            originalData = [];
+            currentPool = [];
+            winnersRecord = [];
+            excludedUids.clear();
+            currentRoundIndex = 0;
+            isDrawing = false;
+            isRedrawState = false;
+            inputModeLocked = false;
+            clearCelebrations(); 
+
+            document.getElementById('file-upload').value = '';
+            document.getElementById('file-status').innerText = '尚未匯入或產生名單';
+            document.getElementById('preview-btn-container').classList.add('hidden');
+            
+            const btnA = document.getElementById('tab-btn-A');
+            const btnB = document.getElementById('tab-btn-B');
+            btnA.classList.remove('opacity-30', 'cursor-not-allowed');
+            btnB.classList.remove('opacity-30', 'cursor-not-allowed');
+
+            document.getElementById('view-draw').classList.add('hidden');
+            document.getElementById('view-setup').classList.remove('hidden');
+            document.getElementById('btn-back-setup').classList.add('hidden');
+            
+            closeResetConfirm();
+            toggleSection(3);
+            showToast('✅ 名單與抽籤紀錄已清空！準備開始下一場。(設定已保留)', 'success');
+        }
+
+        function handleDrawAction() {
+            if (isDrawing) return;
+            if (isRedrawState) {
+                document.getElementById('confirm-redraw-modal').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('confirm-redraw-modal').classList.remove('opacity-0');
+                    document.getElementById('confirm-redraw-modal').firstElementChild.classList.remove('scale-95');
+                }, 10);
+            } else {
+                executeDraw();
+            }
+        }
+
+        function switchView(view) {
+            clearCelebrations(); 
+            
+            if(view === 'draw') {
+                const validCount = originalData.length - excludedUids.size;
+                if(validCount === 0) { showToast('沒有有效的參與名單！請檢查排除設定。'); return; }
+                if(rounds.length === 0) { showToast('請至少設定一個抽籤輪次！'); return; }
+
+                document.getElementById('view-setup').classList.add('hidden');
+                document.getElementById('view-draw').classList.remove('hidden');
+                document.getElementById('btn-back-setup').classList.remove('hidden');
+                
+                currentPool = originalData.filter(item => !excludedUids.has(item._uid));
+                winnersRecord = [];
+                currentRoundIndex = isReverseDraw ? rounds.length - 1 : 0;
+                
+                document.getElementById('draw-overlay').classList.add('hidden');
+                document.getElementById('export-section').classList.add('hidden');
+                updateDrawUI();
+            } else {
+                document.getElementById('view-draw').classList.add('hidden');
+                document.getElementById('view-setup').classList.remove('hidden');
+                document.getElementById('btn-back-setup').classList.add('hidden');
+                toggleSection(3); 
+            }
+        }
+
+        function closeRedrawConfirm() {
+            const modal = document.getElementById('confirm-redraw-modal');
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function processRedraw() {
+            closeRedrawConfirm();
+            clearCelebrations(); 
+            
+            const round = rounds[currentRoundIndex];
+            const excludeWinners = document.getElementById('setting-exclude').checked;
+            
+            const roundWinners = winnersRecord.filter(r => r.roundName === round.name);
+            winnersRecord = winnersRecord.filter(r => r.roundName !== round.name);
+            
+            if (excludeWinners) {
+                roundWinners.forEach(w => { currentPool.push(w.data); });
+            }
+            
+            isRedrawState = false;
+            executeDraw();
+        }
+
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        async function executeDraw() {
+            if(isDrawing) return;
+            clearCelebrations(); 
+            
+            const round = rounds[currentRoundIndex];
+            const excludeWinners = document.getElementById('setting-exclude').checked;
+            const processType = document.getElementById('select-process').value; 
+            const celebType = document.getElementById('select-celebration').value;
+            const animOnce = document.getElementById('setting-anim-once').checked;
+
+            if (currentPool.length === 0) {
+                showToast('抽籤池裡已經沒有名單了！'); return;
+            }
+            if (excludeWinners && round.count > currentPool.length) {
+                showToast(`剩餘人數 (${currentPool.length}) 不足抽出 ${round.count} 名！`); return;
+            }
+
+            audioManager.init();
+            isDrawing = true;
+            document.getElementById('btn-action-draw').disabled = true;
+            
+            document.getElementById('btn-prev-round').style.display = 'none';
+            document.getElementById('btn-next-round').style.display = 'none';
+            document.getElementById('btn-back-setup').classList.add('hidden');
+
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = ''; 
+            
+            const isMany = round.count > 5;
+            if (round.count <= 5) {
+                resultsContainer.className = 'w-full flex flex-col gap-4 mt-4 items-center justify-center max-w-3xl';
+            } else if (round.count <= 10) {
+                resultsContainer.className = 'w-full mt-4 grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto px-2 pb-4';
+            } else if (round.count <= 15) {
+                resultsContainer.className = 'w-full mt-4 grid grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto px-2 pb-4';
+            } else {
+                resultsContainer.className = 'w-full mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[50vh] overflow-y-auto px-2 pb-4';
+            }
+
+            for (let i = 0; i < round.count; i++) {
+                if (currentPool.length === 0) break; 
+
+                const randomIndex = Math.floor(getCryptoRandom() * currentPool.length);
+                const winnerData = currentPool[randomIndex];
+                if (excludeWinners) currentPool.splice(randomIndex, 1);
+                winnersRecord.push({ roundName: round.name, data: winnerData });
+
+                // 根據使用者選擇播放對應的特效
+                if (!animOnce || i === 0) {
+                    await runShuffleAnimation(processType, winnerData);
+                }
+
+                appendWinnerCard(winnerData, isMany, resultsContainer);
+                
+                // 批次快開，或是非老虎機時播放翻牌音效
+                if ((processType !== 'slot' && processType !== 'slot_tease') || (animOnce && i > 0)) {
+                    audioManager.play('flip'); 
+                }
+
+                if (i < round.count - 1) {
+                    await delay(animOnce ? 300 : 800);
+                }
+            }
+
+            isDrawing = false;
+            isRedrawState = true; 
+            document.getElementById('btn-action-draw').innerText = '重抽本輪';
+            document.getElementById('btn-action-draw').disabled = false;
+            
+            const isFirstStep = isReverseDraw ? (currentRoundIndex === rounds.length - 1) : (currentRoundIndex === 0);
+            const isLastStep = isReverseDraw ? (currentRoundIndex === 0) : (currentRoundIndex === rounds.length - 1);
+
+            if (!isFirstStep) document.getElementById('btn-prev-round').style.display = 'block';
+            if (!isLastStep) document.getElementById('btn-next-round').style.display = 'block';
+            document.getElementById('btn-back-setup').classList.remove('hidden');
+
+            triggerCelebration(celebType);
+
+            if (isLastStep) {
+                document.getElementById('export-section').classList.remove('hidden');
+            }
+        }
+
+        // --- 洗牌動畫與老虎機動畫引擎 (整合懸念滑落版) ---
+        function runShuffleAnimation(processType, winnerData) {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('draw-overlay');
+                const slotContainer = document.getElementById('slot-machine-container');
+                const shuffleBox = document.getElementById('shuffle-box');
+
+                overlay.classList.remove('hidden');
+
+                if (processType === 'slot' || processType === 'slot_tease') {
+                    const isTease = processType === 'slot_tease';
+
+                    // 隱藏一般文字框，顯示老虎機
+                    shuffleBox.classList.add('hidden');
+                    slotContainer.classList.remove('hidden');
+                    slotContainer.classList.add('flex');
+                    
+                    const lever = document.getElementById('slot-lever');
+                    const reel = document.getElementById('slot-reel');
+                    
+                    lever.classList.remove('lever-pull');
+                    reel.style.transition = 'none'; 
+                    reel.style.transform = 'translateY(0px)';
+                    void lever.offsetWidth; 
+                    
+                    lever.classList.add('lever-pull');
+                    setTimeout(() => lever.classList.remove('lever-pull'), 400);
+
+                    // 決定時間與誤差
+                    let animDuration = 4.0;
+                    let randomOffset = 0;
+
+                    if (isTease) {
+                        animDuration = 5.0 + Math.random() * 2.0; // 5 到 7 秒
+                        
+                        // 混合機制：65％隨機，35％強制逼近極限邊緣
+                        if (Math.random() < 0.65) {
+                            // 65% 機率：一般大範圍誤差 (-60 到 +60)
+                            randomOffset = Math.floor(Math.random() * 121) - 60; 
+                        } else {
+                            // 35% 機率：極限心臟病模式 (必定落在 ±64 ~ ±68 的危險區)
+                            if (Math.random() < 0.5) {
+                                randomOffset = Math.floor(Math.random() * 5) + 64; // +64 到 +68 (差點滑過去)
+                            } else {
+                                randomOffset = -(Math.floor(Math.random() * 4) + 64); // -64 到 -67 (剛好過線)
+                            }
+                        }
+                    } else {
+                        animDuration = 4.0;
+                        // 正常版也給予微小的不完美置中，增加真實感
+                        randomOffset = Math.floor(Math.random() * 31) - 15;
+                    }
+
+                    // 音效引擎支援動態時間
+                    audioManager.playSlotAudio(isTease, animDuration);
+
+                    reel.innerHTML = ''; 
+                    
+                    const totalSpins = 40; 
+                    const itemHeight = 140; 
+
+                    // 塞入前方的隨機過場名單
+                    for(let k = 0; k < totalSpins - 1; k++) {
+                        const div = document.createElement('div');
+                        div.className = 'slot-item';
+                        const randItem = currentPool.length > 0 ? currentPool[Math.floor(getCryptoRandom() * currentPool.length)] : winnerData;
+                        div.textContent = Object.entries(randItem).filter(([key]) => key !== '_uid').map(e => e[1]).join(' | ');
+                        reel.appendChild(div);
+                    }
+                    
+                    // 為了懸念效果，準備一個「假的中獎者」放在倒數第二格
+                    const fakeWinnerDiv = document.createElement('div');
+                    fakeWinnerDiv.className = 'slot-item'; 
+                    const fakeWinnerData = currentPool.length > 0 ? currentPool[Math.floor(getCryptoRandom() * currentPool.length)] : winnerData;
+                    fakeWinnerDiv.textContent = Object.entries(fakeWinnerData).filter(([key]) => key !== '_uid').map(e => e[1]).join(' | ');
+                    reel.appendChild(fakeWinnerDiv);
+
+                    // 真正的中獎者放在最後一格
+                    const winnerDiv = document.createElement('div');
+                    winnerDiv.className = 'slot-item'; 
+                    winnerDiv.textContent = Object.entries(winnerData).filter(([key]) => key !== '_uid').map(e => e[1]).join(' | ');
+                    reel.appendChild(winnerDiv);
+
+                    void reel.offsetWidth; 
+
+                    const targetY = -(totalSpins * itemHeight) + randomOffset;
+
+                    if (isTease) {
+                        // 驚嚇老虎機：一鏡到底的超長慣性滑行 (Momentum Glide)
+                        // 貝茲曲線(0.05, 0.85, 0.05, 1) 會在後半段極度緩慢，營造「快停了卻還在溜」的錯覺
+                        reel.style.transition = `transform ${animDuration}s cubic-bezier(0.05, 0.85, 0.05, 1)`;
+                        reel.style.transform = `translateY(${targetY}px)`;
+
+                        setTimeout(() => {
+                            overlay.classList.add('hidden');
+                            slotContainer.classList.add('hidden');
+                            slotContainer.classList.remove('flex');
+                            resolve(); 
+                        }, animDuration * 1000 + 800);
+                    } else {
+                        // 正常老虎機：一鏡到底
+                        reel.style.transition = `transform ${animDuration}s cubic-bezier(0.1, 0.7, 0.1, 1.02)`;
+                        reel.style.transform = `translateY(${targetY}px)`;
+
+                        setTimeout(() => {
+                            overlay.classList.add('hidden');
+                            slotContainer.classList.add('hidden');
+                            slotContainer.classList.remove('flex');
+                            resolve(); 
+                        }, animDuration * 1000 + 800); 
+                    }
+                } else {
+                    // --- 極速洗牌與駭客任務邏輯 ---
+                    slotContainer.classList.add('hidden');
+                    slotContainer.classList.remove('flex');
+                    shuffleBox.classList.remove('hidden');
+                    
+                    shuffleBox.className = "bg-white/95 dark:bg-slate-800/95 rounded-3xl shadow-2xl text-3xl md:text-5xl font-bold text-amber-600 dark:text-amber-400 tracking-widest text-center w-[90%] max-w-4xl border-4 border-amber-300 dark:border-amber-600 transition-colors duration-200";
+                    void shuffleBox.offsetWidth; 
+                    
+                    let maxTicks = 20;
+                    let intervalTime = 60;
+
+                    if (processType === 'matrix') {
+                        shuffleBox.classList.add('effect-matrix');
+                        maxTicks = 25; intervalTime = 50;
+                    } else {
+                        shuffleBox.classList.add('animate-pulse-fast'); 
+                    }
+
+                    let ticks = 0;
+                    const matrixChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*';
+
+                    audioManager.playShuffle(processType);
+
+                    const shuffleInterval = setInterval(() => {
+                        const randomItem = currentPool.length > 0 ? currentPool[Math.floor(getCryptoRandom() * currentPool.length)] : winnerData;
+                        let displayText = Object.entries(randomItem).filter(([k]) => k !== '_uid').map(e => e[1]).join(' | ');
+
+                        if (processType === 'matrix' && ticks < maxTicks - 2) {
+                            let randomStr = '';
+                            for(let k=0; k<12; k++) randomStr += matrixChars.charAt(Math.floor(Math.random() * matrixChars.length));
+                            displayText = randomStr;
+                        }
+
+                        shuffleBox.textContent = displayText; 
+                        ticks++;
+                        
+                        if (ticks >= maxTicks) {
+                            clearInterval(shuffleInterval);
+                            audioManager.stopShuffle(); 
+                            overlay.classList.add('hidden'); 
+                            shuffleBox.classList.add('hidden');
+                            resolve(); 
+                        }
+                    }, intervalTime);
+                }
+            });
+        }
+
+        // --- 建立得獎卡片 (防 XSS：全面使用 createElement 搭配 textContent) ---
+        function appendWinnerCard(winner, isMany, container) {
+            const card = document.createElement('div');
+            const displayEntries = Object.entries(winner).filter(([k]) => k !== '_uid');
+
+            if (isMany) {
+                card.className = 'result-card animate-fade-in-up bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md border-t-4 border-amber-400 flex flex-col items-center text-center truncate w-full';
+                const mainText = displayEntries[displayEntries.length - 1][1]; 
+                const subText = displayEntries.slice(0, -1).map(e => e[1]).join(' '); 
+                
+                const subDiv = document.createElement('div');
+                subDiv.className = 'text-xs text-stone-500 truncate w-full';
+                subDiv.textContent = subText;
+                
+                const mainDiv = document.createElement('div');
+                mainDiv.className = 'font-bold text-lg text-stone-800 dark:text-slate-100 truncate w-full mt-1';
+                mainDiv.textContent = mainText;
+                
+                card.appendChild(subDiv);
+                card.appendChild(mainDiv);
+            } else {
+                card.className = 'result-card animate-fade-in-up w-full bg-white dark:bg-slate-800 p-4 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] border-l-8 border-amber-400 flex flex-wrap gap-4 items-center text-lg md:text-2xl font-bold text-stone-800 dark:text-slate-100';
+                
+                displayEntries.forEach(([key, value]) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'flex flex-col';
+                    
+                    const keySpan = document.createElement('span');
+                    keySpan.className = 'text-xs text-stone-400 dark:text-slate-500 uppercase tracking-wider';
+                    keySpan.textContent = key;
+                    
+                    const valSpan = document.createElement('span');
+                    valSpan.textContent = value;
+                    
+                    wrapper.appendChild(keySpan);
+                    wrapper.appendChild(valSpan);
+                    card.appendChild(wrapper);
+                });
+            }
+            container.appendChild(card);
+        }
+
+        function triggerCelebration(type) {
+            if (type === 'none') return;
+            
+            if (type === 'confetti' && typeof confetti !== 'undefined') {
+                audioManager.play('tada'); 
+                confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#fbbf24', '#f87171', '#60a5fa', '#34d399'], zIndex: 9999 });
+            } else if (type === 'fireworks' && typeof confetti !== 'undefined') {
+                var duration = 4 * 1000;
+                var animationEnd = Date.now() + duration;
+                
+                fireworkBurst();
+                var intervalId = setInterval(function() {
+                    var timeLeft = animationEnd - Date.now();
+                    if (timeLeft <= 0) return clearInterval(intervalId);
+                    fireworkBurst();
+                }, 800);
+                celebrationIntervals.push(intervalId);
+
+                function fireworkBurst() {
+                    var x = Math.random() * 0.6 + 0.2; 
+                    var y = Math.random() * 0.3 + 0.1; 
+                    
+                    confetti({
+                        particleCount: 180, 
+                        startVelocity: 50,  
+                        spread: 360,        
+                        origin: { x: x, y: y },
+                        colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff'],
+                        zIndex: 9999,
+                        gravity: 0.6,
+                        scalar: 1.1,
+                        ticks: 120
+                    });
+                    audioManager.play('firework'); 
+                }
+            } else if (type === 'stars' && typeof confetti !== 'undefined') {
+                var duration = 4 * 1000;
+                var animationEnd = Date.now() + duration;
+                
+                var intervalId = setInterval(function() {
+                    var timeLeft = animationEnd - Date.now();
+                    if (timeLeft <= 0) return clearInterval(intervalId);
+                    
+                    audioManager.play('coins'); 
+                    for(var i=0; i<4; i++) {
+                        confetti({ 
+                            particleCount: 25, 
+                            startVelocity: 8, 
+                            spread: 120, 
+                            ticks: 200, 
+                            gravity: 0.8, 
+                            origin: { x: Math.random(), y: Math.random() * 0.2 - 0.2 }, 
+                            colors: ['#FFD700', '#FFA500', '#FCD34D', '#F59E0B'], 
+                            shapes: ['circle', 'square'], 
+                            scalar: Math.random() * 0.6 + 0.8, 
+                            zIndex: 9999 
+                        });
+                    }
+                }, 250);
+                celebrationIntervals.push(intervalId);
+            }
+        }
+        
+        
+        function sanitizeExcelValue(value) {
+          if (typeof value === 'string' && /^[=+\-@]/.test(value)) {
+            return "'" + value;   // 前面加單引號
+          }
+          return value;
+        }
+        
+        // --- 匯出 Excel ---
+        function exportAllInOneExcel() {
+            if (winnersRecord.length === 0) { showToast('目前沒有中獎紀錄可以匯出喔！'); return; }
+            
+            const stripUid = (arr) => arr.map(item => {
+              const { _uid, ...rest } = item;
+
+              const safe = {};
+              for (const key in rest) {
+                safe[key] = sanitizeExcelValue(rest[key]);
+              }
+
+              return safe;
+            });
+            
+
+
+            const workbook = XLSX.utils.book_new();
+            
+            XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(stripUid(originalData)), "1_原始名單");
+            
+            rounds.forEach((round, index) => {
+                const roundWinners = winnersRecord.filter(record => record.roundName === round.name).map(record => record.data);
+                if (roundWinners.length > 0) {
+                    let sheetName = `2.${index+1}_${round.name}`.substring(0, 31);
+                    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(stripUid(roundWinners)), sheetName);
+                }
+            });
+
+            if (currentPool.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(stripUid(currentPool)), "3_未中獎名單");
+
+            const fullListWithStatus = originalData.map((originalItem) => {
+                const winRecord = winnersRecord.find(w => w.data._uid === originalItem._uid);
+                let winStatus = winRecord ? winRecord.roundName : "未中獎";
+                
+                if (excludedUids.has(originalItem._uid)) {
+                    winStatus = "已排除 (未參與)";
+                }
+                
+                const { _uid, ...rest } = originalItem;
+                return { ...rest, "抽籤結果": winStatus };
+            });
+            
+            const ws4 = XLSX.utils.json_to_sheet(fullListWithStatus);
+            
+            const palette = ["FFB3BA", "FFDFBA", "FFFFBA", "BAFFC9", "BAE1FF", "D0DAEE", "E2D2ED", "F6D6E7", "E0FFFF", "FFC0CB"];
+            const roundColors = {};
+            rounds.forEach((r, i) => { roundColors[r.name] = palette[i % palette.length]; });
+
+            const range = XLSX.utils.decode_range(ws4['!ref']);
+            let statusColIndex = -1;
+            
+            for(let C = range.s.c; C <= range.e.c; C++) {
+                const cellAddress = XLSX.utils.encode_cell({r: 0, c: C});
+                if(ws4[cellAddress] && ws4[cellAddress].v === "抽籤結果") {
+                    statusColIndex = C;
+                    break;
+                }
+            }
+
+            if (statusColIndex !== -1) {
+                for(let R = 1; R <= range.e.r; R++) {
+                    const statusCellAddr = XLSX.utils.encode_cell({r: R, c: statusColIndex});
+                    const statusCell = ws4[statusCellAddr];
+                    
+                    if(statusCell && statusCell.v && statusCell.v !== "未中獎") {
+                        let color = "EEEEEE"; 
+                        let fontColor = "000000";
+                        
+                        if (statusCell.v === "已排除 (未參與)") {
+                            color = "D1D5DB"; 
+                            fontColor = "6B7280"; 
+                        } else {
+                            color = roundColors[statusCell.v] || "EEEEEE"; 
+                        }
+                        
+                        for(let C = range.s.c; C <= range.e.c; C++) {
+                            const cellAddress = XLSX.utils.encode_cell({r: R, c: C});
+                            if(!ws4[cellAddress]) ws4[cellAddress] = { t: "s", v: "" }; 
+                            ws4[cellAddress].s = {
+                                fill: { fgColor: { rgb: color } },
+                                font: { color: { rgb: fontColor } }
+                            };
+                        }
+                    }
+                }
+            }
+            
+            XLSX.utils.book_append_sheet(workbook, ws4, "4_完整結果標示版");
+
+            XLSX.writeFile(workbook, "本次抽籤總結報告.xlsx");
+            showToast('✅ 抽籤總表已成功下載 (含色彩標示)！', 'success');
+        }
+    </script>
+</body>
+</html>
