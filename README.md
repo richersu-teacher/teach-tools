@@ -35,20 +35,16 @@
 
 - 不會蒐集或傳送任何使用者資料  
 - 所有操作僅於瀏覽器內進行  
-- 使用者需自行決定資料使用方式  
 
 ---
 
 ## 📄 License & Notice
 
-本專案為教學用途工具，  
-原始程式碼由作者自行開發。
+This project was developed by the author with AI-assisted coding tools.
 
 ---
 
 ### Third-party Libraries
-
-This project uses the following open-source libraries:
 
 - Tailwind CSS  
 - xlsx-js-style  
@@ -62,8 +58,7 @@ All rights belong to their original authors.
 
 ## ⚠️ Usage Notice
 
-- This project is intended for educational and non-commercial use  
-- Please follow the license terms of third-party libraries when reusing  
+This project is primarily designed for educational and classroom use.
 
 ---
 
@@ -84,3 +79,4 @@ All rights belong to their original authors.
 - 資訊顯示  
 
 不包含內容生成或自動評量功能。
+``
