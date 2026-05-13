@@ -27,8 +27,7 @@
 
 - 本專案為純前端工具（HTML + JavaScript）
 - 開啟瀏覽器即可使用，無需安裝
-- 本專案不設置後端伺服器
-- 工具主要資料處理皆在使用者瀏覽器端完成 
+- 本專案未設置後端伺服器，所有工具於使用者瀏覽器中執行 
 
 ---
 
@@ -44,7 +43,7 @@
 
 ## 📄 授權與使用說明
 
-本專案程式碼以 MIT License 授權，詳細內容請見 LICENSE.txt。
+本專案程式碼以 MIT License 授權，詳細內容請見 LICENSE。
 
 本專案在開發過程中曾使用 AI 輔助撰寫與整理程式碼，並由作者依教學現場需求進行調整。
 
@@ -65,7 +64,7 @@
 - Google Fonts
 - Phosphor Icons
 
-上述第三方資源之著作權與授權條款，皆屬於其原作者或維護者。
+> 上述第三方資源之著作權與授權條款，皆屬於其原作者或維護者。
 ---
 
 ## ⚠️ Usage Notice
@@ -89,5 +88,3 @@ This project is primarily designed for educational and classroom use.
 - 抽籤
 - 計時
 - 資訊顯示
-
-不包含內容生成或自動評量功能。
