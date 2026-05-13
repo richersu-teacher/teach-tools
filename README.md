@@ -90,7 +90,7 @@ Users should use the tools according to their own needs and classroom situations
 
 ## 💡 說明
 
-本專案目前收錄的工具主要用於：
+本專案目前提供以下教學輔助工具：
 
 - 課堂抽籤
 - 課堂或活動計時
