@@ -34,26 +34,27 @@
 
 ## 🔐 資料與隱私
 
-- 本專案本身不主動蒐集、儲存或上傳使用者資料
-- 使用者輸入的名單、計時內容、考試資訊等，主要於瀏覽器端處理
-- 部分頁面可能會載入第三方 CDN、字型或圖示資源，因此瀏覽器可能會向相關第三方服務發出資源請求
-- 若使用者下載匯出檔案，檔案會由瀏覽器在本機產生  
+- 本專案不設置後端伺服器
+- 工具主要在使用者自己的瀏覽器中執行
+- 使用者輸入的名單、計時內容、考試資訊等，不會由本專案主動上傳或儲存到伺服器
+- 若使用者下載匯出檔案，檔案會由瀏覽器在本機產生
+- 部分頁面會載入外部字型、圖示或程式庫，因此瀏覽器可能會連線到相關第三方服務 
 
 ---
 
-## 📄 License & Notice
+## 📄 授權與使用說明
 
-This project was developed by the author with AI-assisted coding tools.
+本專案程式碼以 MIT License 授權，詳細內容請見 LICENSE.txt。
 
-The source code of this project is released under the MIT License, unless otherwise stated.
+本專案在開發過程中曾使用 AI 輔助撰寫與整理程式碼，並由作者依教學現場需求進行調整。
 
-Third-party libraries, fonts, icons, and CDN resources are subject to their respective licenses.
+本專案可能使用第三方字型、圖示與前端程式庫，這些資源仍依各自原作者的授權條款使用。
 
 ---
 
-### Third-party Libraries and Resources
+### Third-party Libraries and Resources 第三方資源
 
-This project may use the following third-party libraries or resources:
+本專案可能使用以下第三方資源：
 
 - Tailwind CSS
 - React
@@ -64,9 +65,7 @@ This project may use the following third-party libraries or resources:
 - Google Fonts
 - Phosphor Icons
 
-All third-party libraries, fonts, icons, and resources are used under their respective licenses.  
-All rights belong to their original authors.
-
+上述第三方資源之著作權與授權條款，皆屬於其原作者或維護者。
 ---
 
 ## ⚠️ Usage Notice
