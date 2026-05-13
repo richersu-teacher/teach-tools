@@ -65,6 +65,7 @@
 - Phosphor Icons
 
 > 上述第三方資源之著作權與授權條款，皆屬於其原作者或維護者。
+
 ---
 
 ## ⚠️ Usage Notice
@@ -89,8 +90,8 @@ Users should use the tools according to their own needs and classroom situations
 
 ## 💡 說明
 
-本專案工具僅提供：
+本專案目前收錄的工具主要用於：
 
-- 抽籤
-- 計時
-- 資訊顯示
+- 課堂抽籤
+- 課堂或活動計時
+- 考試時間與提醒資訊顯示
