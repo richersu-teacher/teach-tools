@@ -75,9 +75,15 @@ This project is primarily designed for educational and classroom use.
 
 ## ⚠️ Disclaimer
 
-- This project is for classroom support use
-- No guarantee is provided for all usage scenarios
-- Users are responsible for how the tools are used
+本工具為教學輔助用途，  
+不保證適用於所有情境或設備。  
+使用時請依實際教學情境自行調整。  
+
+---
+
+This project is intended for classroom support use.  
+It may not work perfectly in all scenarios or environments.  
+Users should use the tools according to their own needs and classroom situations.
 
 ---
 
