@@ -45,9 +45,15 @@
 
 This project was developed by the author with AI-assisted coding tools.
 
+The source code of this project is released under the MIT License, unless otherwise stated.
+
+Third-party libraries, fonts, icons, and CDN resources are subject to their respective licenses.
+
 ---
 
-### Third-party Libraries
+### Third-party Libraries and Resources
+
+This project may use the following third-party libraries or resources:
 
 - Tailwind CSS
 - React
@@ -56,8 +62,9 @@ This project was developed by the author with AI-assisted coding tools.
 - xlsx-js-style
 - canvas-confetti
 - Google Fonts
+- Phosphor Icons
 
-All third-party libraries are used under their respective open-source licenses (e.g., MIT License).  
+All third-party libraries, fonts, icons, and resources are used under their respective licenses.  
 All rights belong to their original authors.
 
 ---
@@ -70,9 +77,9 @@ This project is primarily designed for educational and classroom use.
 
 ## ⚠️ Disclaimer
 
-- This project is for classroom support use  
-- No guarantee for all usage scenarios  
-- Users are responsible for how the tools are used  
+- This project is for classroom support use
+- No guarantee is provided for all usage scenarios
+- Users are responsible for how the tools are used
 
 ---
 
@@ -80,9 +87,8 @@ This project is primarily designed for educational and classroom use.
 
 本專案工具僅提供：
 
-- 抽籤  
-- 計時  
-- 資訊顯示  
+- 抽籤
+- 計時
+- 資訊顯示
 
 不包含內容生成或自動評量功能。
-``
