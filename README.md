@@ -23,6 +23,10 @@
   協助教師監考，提供時間提醒與進度提示。  
   Displays exam timing reminders for invigilation.
 
+- 👥 動態分組小工具  
+  支援隨機分組、男女盡量平均、男女分開、指定組數或每組人數，並可依需求設定進階條件。  
+  Dynamic classroom grouping tool with multiple grouping modes and configurable conditions.
+
 ---
 
 ## 📌 使用說明
@@ -97,3 +101,4 @@ Users should use the tools according to their own needs and classroom situations
 - 課堂抽籤
 - 課堂或活動計時
 - 考試時間與提醒資訊顯示
+- 班級動態分組
