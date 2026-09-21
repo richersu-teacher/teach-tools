@@ -273,6 +273,57 @@
             }
         };
 
+        const DEFAULT_EXAM_SETTINGS = [
+            { subject: "國語", start: "08:40", end: "09:20" }, { subject: "數學", start: "10:10", end: "10:50" }
+        ];
+
+        const parseStoredJSON = (value, fallback) => {
+            try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+        };
+
+        const createDefaultExamBoardPersistence = () => ({
+            exams: DEFAULT_EXAM_SETTINGS.map(exam => ({ ...exam })),
+            messages: JSON.parse(JSON.stringify(DEFAULT_MESSAGES)),
+            shouldArrive: '',
+            theme: 'DAY',
+            viewMode: 0,
+            offset: 0
+        });
+
+        const loadExamBoardPersistence = () => {
+            const defaults = createDefaultExamBoardPersistence();
+            const savedValue = localStorage.getItem('examBoard_v1');
+
+            if (savedValue !== null) {
+                const saved = parseStoredJSON(savedValue, {}) || {};
+                return {
+                    exams: Array.isArray(saved.exams) ? saved.exams : defaults.exams,
+                    messages: saved.messages && typeof saved.messages === 'object' ? saved.messages : defaults.messages,
+                    shouldArrive: typeof saved.shouldArrive === 'string' ? saved.shouldArrive : defaults.shouldArrive,
+                    theme: typeof saved.theme === 'string' ? saved.theme : defaults.theme,
+                    viewMode: [0, 1, 2].includes(saved.viewMode) ? saved.viewMode : defaults.viewMode,
+                    offset: typeof saved.offset === 'number' && Number.isFinite(saved.offset) ? saved.offset : defaults.offset
+                };
+            }
+
+            const legacyExams = parseStoredJSON(localStorage.getItem('exams_v5'), defaults.exams);
+            const legacyMessages = parseStoredJSON(localStorage.getItem('msgs_v5'), defaults.messages);
+            const legacyAttendance = parseStoredJSON(localStorage.getItem('att_v5'), {}) || {};
+            const legacyOffset = parseInt(localStorage.getItem('offset_v5') || defaults.offset, 10);
+            const migrated = {
+                exams: Array.isArray(legacyExams) ? legacyExams : defaults.exams,
+                messages: legacyMessages && typeof legacyMessages === 'object' ? legacyMessages : defaults.messages,
+                shouldArrive: typeof legacyAttendance.shouldArrive === 'string' ? legacyAttendance.shouldArrive : defaults.shouldArrive,
+                theme: localStorage.getItem('theme_v6') || defaults.theme,
+                viewMode: defaults.viewMode,
+                offset: Number.isFinite(legacyOffset) ? legacyOffset : defaults.offset
+            };
+
+            localStorage.setItem('examBoard_v1', JSON.stringify(migrated));
+            ['offset_v5', 'msgs_v5', 'exams_v5', 'att_v5', 'theme_v6'].forEach(key => localStorage.removeItem(key));
+            return migrated;
+        };
+
         const processImageFile = async (file) => {
             const TARGET_WIDTH = 1920; 
             try {
@@ -434,16 +485,15 @@
 
         const App = () => {
             const [now, setNow] = useState(new Date());
-            const [offset, setOffset] = useState(() => parseInt(localStorage.getItem('offset_v5') || 0, 10));
-            const [messageSettings, setMessageSettings] = useState(() => JSON.parse(localStorage.getItem('msgs_v5') || JSON.stringify(DEFAULT_MESSAGES)));
-            const [examSettings, setExamSettings] = useState(() => JSON.parse(localStorage.getItem('exams_v5')) || [
-                { subject: "國語", start: "08:40", end: "09:20" }, { subject: "數學", start: "10:10", end: "10:50" }
-            ]);
-            const [attendance, setAttendance] = useState(() => JSON.parse(localStorage.getItem('att_v5')) || { shouldArrive: "", actualArrive: "", absentList: "" });
+            const [initialPersistence] = useState(() => loadExamBoardPersistence());
+            const [offset, setOffset] = useState(() => initialPersistence.offset);
+            const [messageSettings, setMessageSettings] = useState(() => initialPersistence.messages);
+            const [examSettings, setExamSettings] = useState(() => initialPersistence.exams);
+            const [attendance, setAttendance] = useState(() => ({ shouldArrive: initialPersistence.shouldArrive, actualArrive: "", absentList: "" }));
             const [isSettingsOpen, setIsSettingsOpen] = useState(false);
             const [keypadState, setKeypadState] = useState({ isOpen: false, index: null, field: null, initialTime: '' });
-            const [viewMode, setViewMode] = useState(0);
-            const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('theme_v6') || 'DAY');
+            const [viewMode, setViewMode] = useState(() => initialPersistence.viewMode);
+            const [currentTheme, setCurrentTheme] = useState(() => initialPersistence.theme);
             const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
             const [mediaResources, setMediaResources] = useState({});
             const [avPlayer, setAvPlayer] = useState({ rowIndex: null, isPlaying: false });
@@ -458,11 +508,16 @@
             const prevSegmentRef = useRef(-1); 
 
             useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
-            useEffect(() => { localStorage.setItem('offset_v5', offset); }, [offset]);
-            useEffect(() => { localStorage.setItem('exams_v5', JSON.stringify(examSettings)); }, [examSettings]);
-            useEffect(() => { localStorage.setItem('att_v5', JSON.stringify(attendance)); }, [attendance]);
-            useEffect(() => { localStorage.setItem('msgs_v5', JSON.stringify(messageSettings)); }, [messageSettings]);
-            useEffect(() => { localStorage.setItem('theme_v6', currentTheme); }, [currentTheme]);
+            useEffect(() => {
+                localStorage.setItem('examBoard_v1', JSON.stringify({
+                    exams: examSettings,
+                    messages: messageSettings,
+                    shouldArrive: attendance.shouldArrive,
+                    theme: currentTheme,
+                    viewMode,
+                    offset
+                }));
+            }, [examSettings, messageSettings, attendance.shouldArrive, currentTheme, viewMode, offset]);
 
             useEffect(() => {
                 const requestLock = async () => { if ('wakeLock' in navigator && !wakeLockRef.current) wakeLockRef.current = await navigator.wakeLock.request('screen').catch(()=>{}); };
