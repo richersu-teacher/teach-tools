@@ -200,6 +200,122 @@
   </style>
 </head>
 <body class="bg-ocean-gradient text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300">
+
+    <!-- 資料使用提醒：獨立於主程式初始化，不改動既有功能流程 -->
+    <style>
+        .teacher-tools-privacy-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            background: rgba(15, 23, 42, 0.58);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .teacher-tools-privacy-card {
+            width: min(520px, calc(100vw - 40px));
+            box-sizing: border-box;
+            padding: 26px 28px 24px;
+            border: 1px solid #d7e5dc;
+            border-radius: 18px;
+            background: #fffdf8;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+            color: #334155;
+            font-family: "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
+        }
+        .teacher-tools-privacy-title {
+            margin: 0 0 18px;
+            color: #334155;
+            font-size: 1.45rem;
+            font-weight: 900;
+            text-align: center;
+        }
+        .teacher-tools-privacy-item {
+            margin: 13px 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            line-height: 1.8;
+        }
+        .teacher-tools-privacy-no-upload {
+            color: #b42318;
+            font-size: 1.22em;
+            font-weight: 900;
+        }
+        .teacher-tools-privacy-local {
+            color: #18794e;
+            font-size: 1.22em;
+            font-weight: 900;
+        }
+        .teacher-tools-privacy-confirm {
+            display: block;
+            width: 100%;
+            margin: 22px 0 0;
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 12px;
+            background: #b7791f;
+            color: #fff;
+            font: inherit;
+            font-size: 1.05rem;
+            font-weight: 900;
+            cursor: pointer;
+        }
+        .teacher-tools-privacy-confirm:hover { background: #956117; }
+        .teacher-tools-privacy-confirm:focus-visible {
+            outline: 3px solid #f6c453;
+            outline-offset: 3px;
+        }
+    </style>
+    <div id="teacher-tools-privacy-overlay" class="teacher-tools-privacy-overlay"
+         role="dialog" aria-modal="true" aria-labelledby="teacher-tools-privacy-title">
+        <div class="teacher-tools-privacy-card">
+            <h2 id="teacher-tools-privacy-title" class="teacher-tools-privacy-title">🔒 資料使用提醒</h2>
+            <p class="teacher-tools-privacy-item">
+                ◆ 學生名單與使用者輸入資料
+                <strong class="teacher-tools-privacy-no-upload">「不會上傳網站」</strong>。
+            </p>
+            <p class="teacher-tools-privacy-item">
+                ◆ 資料處理和記憶均在
+                <strong class="teacher-tools-privacy-local">「本地電腦完成」</strong>。
+            </p>
+            <button id="teacher-tools-privacy-confirm" class="teacher-tools-privacy-confirm" type="button">我知道了</button>
+        </div>
+    </div>
+    <script>
+        (() => {
+            const PRIVACY_NOTICE_SESSION_KEY = "teacher_tools_group_privacy_notice_session_v1";
+            const overlay = document.getElementById("teacher-tools-privacy-overlay");
+            const confirmButton = document.getElementById("teacher-tools-privacy-confirm");
+
+            let alreadyConfirmed = false;
+            try {
+                alreadyConfirmed = sessionStorage.getItem(PRIVACY_NOTICE_SESSION_KEY) === "yes";
+            } catch (_) {
+                // sessionStorage 不可用時，本次仍顯示提醒；不影響主程式後續功能。
+            }
+
+            if (alreadyConfirmed) {
+                overlay?.remove();
+                return;
+            }
+
+            confirmButton?.addEventListener("click", () => {
+                try {
+                    sessionStorage.setItem(PRIVACY_NOTICE_SESSION_KEY, "yes");
+                } catch (_) {
+                    // 無法記憶時只代表下次會再提醒，不阻斷主程式。
+                }
+                overlay?.remove();
+            }, { once: true });
+
+            requestAnimationFrame(() => confirmButton?.focus());
+        })();
+    </script>
+
   <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-[10000] flex flex-col gap-2 w-[min(92vw,520px)] pointer-events-none"></div>
 
   <main class="max-w-6xl mx-auto w-full p-4 md:p-6">
