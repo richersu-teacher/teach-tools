@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎊 進階儀式感抽籤系統V2</title>
+    <script>
+        try {
+            const savedLotteryTheme = JSON.parse(localStorage.getItem('lottery_v1') || 'null')?.theme;
+            if (savedLotteryTheme === 'dark') document.documentElement.classList.add('dark');
+        } catch (error) {
+            console.warn('讀取 Lottery 主題失敗，將使用預設主題。', error);
+        }
+    </script>
     <!-- 引入 Tailwind CSS 處理日夜間模式與現代化排版 (已釘版 v3.4.1 避免未來跑版) -->
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
     <script>
@@ -32,8 +40,15 @@
             }
         }
     </script>
-    <!-- 引入支援樣式輸出的 xlsx-js-style (取代一般 SheetJS，已釘版 v1.2.0) -->
+    <!-- Excel Writer：保留 xlsx-js-style v1.2.0 的樣式輸出 -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script>globalThis.XLSXWriter = globalThis.XLSX;</script>
+    <!-- Excel Reader：user-supplied workbook 僅交由 SheetJS CE 0.20.3 解析 -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script>
+        globalThis.XLSXReader = globalThis.XLSX;
+        globalThis.XLSX = globalThis.XLSXReader;
+    </script>
     
     <style>
         /* 隱藏滾動條但保留功能，讓畫面更乾淨 */
@@ -48,7 +63,7 @@
         .effect-matrix { background-color: #0f172a !important; color: #22c55e !important; border-color: #22c55e !important; font-family: monospace; text-shadow: 0 0 10px #22c55e; }
         
         /* 手風琴圖示旋轉特效 */
-        .rotate-[-90deg] { transform: rotate(-90deg); }
+        .rotate-\[-90deg\] { transform: rotate(-90deg); }
 
         /* =========================================
            🎰 吃角子老虎機專用 CSS 
@@ -116,19 +131,81 @@
     <!-- 視圖 1：設定區 -->
     <main id="view-setup" class="flex-grow flex flex-col items-center p-6 max-w-4xl mx-auto w-full gap-5">
         
-        <!-- 區塊 1：獎項與輪次設定 -->
-        <section id="section-1" class="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl transition-all duration-500 ease-out border border-amber-200 dark:border-slate-700">
+        <!-- 步驟 1：名單與缺席 -->
+        <section id="section-3" class="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl transition-all duration-500 ease-out border border-amber-200 dark:border-slate-700">
+            <h2 class="text-xl font-bold flex items-center justify-between cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors select-none" onclick="toggleSection(3)">
+                <div class="flex items-center gap-2">📂 1. 名單與缺席</div>
+                <span id="icon-sec-3" class="text-sm transition-transform duration-300 transform">▼</span>
+            </h2>
+            <div id="content-sec-3" class="mt-4 pb-2">
+                
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 mb-6 pb-4 gap-4 flex-wrap">
+                    <div class="flex p-1 bg-slate-100 dark:bg-slate-700/50 rounded-xl" id="tab-container">
+                        <button id="tab-btn-A" onclick="switchTab('A')" class="px-5 py-2 rounded-lg font-bold text-amber-600 dark:text-amber-400 bg-white dark:bg-slate-600 shadow-sm transition">📁 EXCEL / CSV 名單匯入</button>
+                        <button id="tab-btn-B" onclick="switchTab('B')" class="px-5 py-2 rounded-lg font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition">🔢 快速產生座號</button>
+                    </div>
+                    <button onclick="clearStep3List()" class="px-4 py-2 text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition flex items-center gap-1 shadow-sm">
+                        🗑️ 清空重新輸入
+                    </button>
+                </div>
+
+                <!-- 模式 A：專業匯入 -->
+                <div id="tab-content-A" class="block animate-fade-in-up">
+                    <div class="bg-amber-50 dark:bg-slate-700/30 p-5 rounded-xl border border-amber-100 dark:border-slate-600">
+                        <p class="text-sm text-stone-600 dark:text-slate-300 mb-4">欄位名稱不限，最多讀取前 5 欄；可用於班級、部門、職位、姓名等各式名單。</p>
+                        <input type="file" id="file-upload" accept=".xlsx,.csv" class="block w-full text-sm text-stone-500 dark:text-slate-400
+                            file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
+                            file:text-sm file:font-semibold file:bg-amber-200 file:text-amber-900
+                            dark:file:bg-blue-900/50 dark:file:text-blue-300 hover:file:bg-amber-300 dark:hover:file:bg-blue-900/70 cursor-pointer"
+                            onchange="handleFileUpload(event)">
+                    </div>
+                </div>
+
+                <!-- 模式 B：快速座號產生器 -->
+                <div id="tab-content-B" class="hidden animate-fade-in-up">
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <p class="text-sm text-stone-600 dark:text-slate-300 mb-4">輸入班級最大號碼一鍵產生座號，並自動彈出預覽讓您排除請假學生。</p>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <span class="font-bold text-stone-600 dark:text-slate-300">設定最大號碼：</span>
+                            <input type="number" id="quick-seat-count" min="1" value="30" class="w-24 p-2 border-2 border-blue-200 rounded-lg dark:bg-slate-800 dark:border-slate-600 dark:text-white text-center outline-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
+                            <button onclick="generateQuickSeats()" class="ml-auto px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl shadow-md transition transform hover:scale-105 w-full sm:w-auto">
+                                產生並預覽
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 狀態顯示 -->
+                <div id="file-status" class="text-center mt-6 text-sm text-stone-500 dark:text-slate-400 whitespace-nowrap">尚未匯入或產生名單</div>
+
+                <!-- 預覽按鈕 (匯入成功後顯示) -->
+                <div id="preview-btn-container" class="mt-4 flex flex-col items-center justify-center border-t border-slate-100 dark:border-slate-700 pt-6 hidden gap-4">
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">請確認本次出席名單，再進入獎項設定。</p>
+                    <div class="flex flex-wrap justify-center gap-4 w-full">
+                        <button onclick="showPreviewModal()" class="px-8 py-4 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-xl font-bold rounded-full transition shadow-md hover:shadow-lg flex items-center gap-2">
+                            👀 預覽名單 (可修改)
+                        </button>
+                        <button onclick="toggleSection(1)" class="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white text-xl font-bold rounded-full shadow-xl shadow-amber-500/30 transition transform hover:scale-105 flex items-center gap-2 animate-fade-in-up">
+                            下一步：獎項設定 ➔
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 步驟 2：獎項與輪次設定 -->
+        <section id="section-1" class="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl transition-all duration-500 ease-out border border-amber-200 dark:border-slate-700 opacity-60 scale-[0.98]">
             <h2 class="text-xl font-bold flex items-center justify-between cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors select-none" onclick="toggleSection(1)">
-                <div class="flex items-center gap-2">📝 1. 設定抽籤輪次與獎項</div>
-                <span id="icon-sec-1" class="text-sm transition-transform duration-300 transform">▼</span>
+                <div class="flex items-center gap-2">📝 2. 設定抽籤輪次與獎項</div>
+                <span id="icon-sec-1" class="text-sm transition-transform duration-300 transform rotate-[-90deg]">▼</span>
             </h2>
             
-            <div id="content-sec-1" class="mt-4 pb-2">
+            <div id="content-sec-1" class="mt-4 pb-2 hidden">
                 <!-- 匯入 Excel 設定檔功能 -->
                 <div class="flex flex-col sm:flex-row gap-4 mb-6 bg-amber-50 dark:bg-slate-700/30 p-4 rounded-xl border border-amber-100 dark:border-slate-600">
                     <div class="flex-grow">
                         <label class="block text-sm font-bold text-stone-600 dark:text-slate-300 mb-2">📥 批次匯入獎項設定 (Excel)</label>
-                        <input type="file" id="config-upload" accept=".xlsx, .xls" class="block w-full text-sm text-stone-500 dark:text-slate-400
+                        <input type="file" id="config-upload" accept=".xlsx" class="block w-full text-sm text-stone-500 dark:text-slate-400
                             file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
                             file:text-sm file:font-semibold file:bg-amber-200 file:text-amber-900
                             dark:file:bg-blue-900/50 dark:file:text-blue-300 hover:file:bg-amber-300 dark:hover:file:bg-blue-900/70 cursor-pointer"
@@ -158,16 +235,16 @@
                         👀 預覽今日抽籤獎項
                     </button>
                     <button onclick="toggleSection(2)" class="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-md transition w-full sm:w-auto text-lg">
-                        下一步：特效設定 ➔
+                        下一步：規則與特效 ➔
                     </button>
                 </div>
             </div>
         </section>
 
-        <!-- 區塊 2：全域設定 -->
+        <!-- 步驟 3：抽籤規則與特效 -->
         <section id="section-2" class="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl transition-all duration-500 ease-out border border-amber-200 dark:border-slate-700 opacity-60 scale-[0.98]">
              <h2 class="text-xl font-bold flex items-center justify-between cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors select-none" onclick="toggleSection(2)">
-                 <div class="flex items-center gap-2">⚙️ 2. 抽籤規則與特效設定</div>
+                 <div class="flex items-center gap-2">⚙️ 3. 抽籤規則與特效設定</div>
                  <span id="icon-sec-2" class="text-sm transition-transform duration-300 transform rotate-[-90deg]">▼</span>
              </h2>
              <div id="content-sec-2" class="mt-4 pb-2 hidden">
@@ -228,75 +305,13 @@
 
                     <div class="mt-2 flex justify-end border-t border-slate-100 dark:border-slate-700 pt-4">
                         <button onclick="saveSettingsAndLoadEffects()" class="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl shadow-md transition w-full sm:w-auto text-lg">
-                            💾 確認特效設定 (解鎖音效與下一步)
+                            🎉 確認設定並進入抽籤會場
                         </button>
                     </div>
                 </div>
              </div>
         </section>
 
-        <!-- 區塊 3：匯入名單 -->
-        <section id="section-3" class="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl transition-all duration-500 ease-out border border-amber-200 dark:border-slate-700 opacity-60 scale-[0.98]">
-            <h2 class="text-xl font-bold flex items-center justify-between cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors select-none" onclick="toggleSection(3)">
-                <div class="flex items-center gap-2">📂 3. 匯入抽籤名單與確認</div>
-                <span id="icon-sec-3" class="text-sm transition-transform duration-300 transform rotate-[-90deg]">▼</span>
-            </h2>
-            <div id="content-sec-3" class="mt-4 pb-2 hidden">
-                
-                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 mb-6 pb-4 gap-4 flex-wrap">
-                    <div class="flex p-1 bg-slate-100 dark:bg-slate-700/50 rounded-xl" id="tab-container">
-                        <button id="tab-btn-A" onclick="switchTab('A')" class="px-5 py-2 rounded-lg font-bold text-amber-600 dark:text-amber-400 bg-white dark:bg-slate-600 shadow-sm transition">📁 EXCEL 名單匯入</button>
-                        <button id="tab-btn-B" onclick="switchTab('B')" class="px-5 py-2 rounded-lg font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition">🔢 快速產生座號</button>
-                    </div>
-                    <button onclick="clearStep3List()" class="px-4 py-2 text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition flex items-center gap-1 shadow-sm">
-                        🗑️ 清空重新輸入
-                    </button>
-                </div>
-
-                <!-- 模式 A：專業匯入 -->
-                <div id="tab-content-A" class="block animate-fade-in-up">
-                    <div class="bg-amber-50 dark:bg-slate-700/30 p-5 rounded-xl border border-amber-100 dark:border-slate-600">
-                        <p class="text-sm text-stone-600 dark:text-slate-300 mb-4">適合大型活動，或含有姓名、部門等詳細資訊的名單。</p>
-                        <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-stone-500 dark:text-slate-400
-                            file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
-                            file:text-sm file:font-semibold file:bg-amber-200 file:text-amber-900
-                            dark:file:bg-blue-900/50 dark:file:text-blue-300 hover:file:bg-amber-300 dark:hover:file:bg-blue-900/70 cursor-pointer"
-                            onchange="handleFileUpload(event)">
-                    </div>
-                </div>
-
-                <!-- 模式 B：快速座號產生器 -->
-                <div id="tab-content-B" class="hidden animate-fade-in-up">
-                    <div class="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-800">
-                        <p class="text-sm text-stone-600 dark:text-slate-300 mb-4">輸入班級最大號碼一鍵產生座號，並自動彈出預覽讓您排除請假學生。</p>
-                        <div class="flex items-center gap-3 flex-wrap">
-                            <span class="font-bold text-stone-600 dark:text-slate-300">設定最大號碼：</span>
-                            <input type="number" id="quick-seat-count" min="1" max="500" value="30" class="w-24 p-2 border-2 border-blue-200 rounded-lg dark:bg-slate-800 dark:border-slate-600 dark:text-white text-center outline-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
-                            <button onclick="generateQuickSeats()" class="ml-auto px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl shadow-md transition transform hover:scale-105 w-full sm:w-auto">
-                                產生並預覽
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 狀態顯示 -->
-                <div id="file-status" class="text-center mt-6 text-sm text-stone-500 dark:text-slate-400 whitespace-nowrap">尚未匯入或產生名單</div>
-
-                <!-- 預覽按鈕 (匯入成功後顯示) -->
-                <div id="preview-btn-container" class="mt-4 flex flex-col items-center justify-center border-t border-slate-100 dark:border-slate-700 pt-6 hidden gap-4">
-                    <p class="text-slate-500 dark:text-slate-400 text-sm">請確認名單無誤，或直接進入抽籤會場！</p>
-                    <div class="flex flex-wrap justify-center gap-4 w-full">
-                        <button onclick="showPreviewModal()" class="px-8 py-4 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-xl font-bold rounded-full transition shadow-md hover:shadow-lg flex items-center gap-2">
-                            👀 預覽名單 (可修改)
-                        </button>
-                        <button onclick="startLottery()" class="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white text-xl font-bold rounded-full shadow-xl shadow-amber-500/30 transition transform hover:scale-105 flex items-center gap-2 animate-fade-in-up">
-                            🎉 直接進入會場 ➔
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
         <!-- 底部墊高空間 -->
         <div class="h-10"></div>
     </main>
@@ -500,7 +515,180 @@
         let excludedUids = new Set(); // 核心防護機制 3：使用 UUID 防止同名同姓衝突
         let isReverseDraw = false; 
         let inputModeLocked = false; 
-        let celebrationIntervals = []; 
+        let celebrationIntervals = [];
+
+        const MAX_ROSTER_COLUMNS = 5;
+
+        function limitRosterColumns(row) {
+            return Object.fromEntries(Object.entries(row).slice(0, MAX_ROSTER_COLUMNS));
+        }
+
+        function getDisplayEntries(item) {
+            return Object.entries(item)
+                .filter(([key]) => key !== '_uid')
+                .filter(([, value]) => value !== '' && value !== null && value !== undefined);
+        }
+
+        function formatParticipantText(item, separator = ' | ') {
+            return getDisplayEntries(item).map(([, value]) => String(value)).join(separator);
+        }
+
+        const LOTTERY_STORAGE_KEY = 'lottery_v1';
+        const ROSTER_STORAGE_LIMIT = 768 * 1024;
+        const ROUNDS_STORAGE_LIMIT = 64 * 1024;
+        const DEFAULT_LOTTERY_SETTINGS = {
+            excludeWinners: true,
+            processEffect: 'pulse',
+            celebrationEffect: 'confetti',
+            animOnce: false,
+            reverseDraw: false,
+            mute: false
+        };
+        let rosterStorageLimitNoticeShown = false;
+        let roundsStorageLimitNoticeShown = false;
+
+        function createDefaultRounds() {
+            return [{ id: 1, name: '頭獎', count: 1 }];
+        }
+
+        function estimateStorageBytes(data) {
+            return JSON.stringify(data).length * 2;
+        }
+
+        function normalizeRounds(value) {
+            if (!Array.isArray(value)) return null;
+            const validRounds = value
+                .filter(round => round && typeof round === 'object' && Number.isFinite(round.id) && typeof round.name === 'string' && round.name.trim() !== '' && Number.isFinite(round.count) && round.count > 0)
+                .map(round => ({ id: round.id, name: round.name, count: round.count }));
+            return validRounds.length > 0 ? validRounds : null;
+        }
+
+        function normalizeLotterySettings(value) {
+            const settings = value && typeof value === 'object' ? value : {};
+            return {
+                excludeWinners: typeof settings.excludeWinners === 'boolean' ? settings.excludeWinners : DEFAULT_LOTTERY_SETTINGS.excludeWinners,
+                processEffect: ['pulse', 'matrix', 'slot_tease'].includes(settings.processEffect) ? settings.processEffect : DEFAULT_LOTTERY_SETTINGS.processEffect,
+                celebrationEffect: ['confetti', 'fireworks', 'stars', 'none'].includes(settings.celebrationEffect) ? settings.celebrationEffect : DEFAULT_LOTTERY_SETTINGS.celebrationEffect,
+                animOnce: typeof settings.animOnce === 'boolean' ? settings.animOnce : DEFAULT_LOTTERY_SETTINGS.animOnce,
+                reverseDraw: typeof settings.reverseDraw === 'boolean' ? settings.reverseDraw : DEFAULT_LOTTERY_SETTINGS.reverseDraw,
+                mute: typeof settings.mute === 'boolean' ? settings.mute : DEFAULT_LOTTERY_SETTINGS.mute
+            };
+        }
+
+        function getLotterySettings() {
+            return {
+                excludeWinners: document.getElementById('setting-exclude').checked,
+                processEffect: document.getElementById('select-process').value,
+                celebrationEffect: document.getElementById('select-celebration').value,
+                animOnce: document.getElementById('setting-anim-once').checked,
+                reverseDraw: document.getElementById('setting-reverse-draw').checked,
+                mute: document.getElementById('setting-mute').checked
+            };
+        }
+
+        function getPersistedRoster() {
+            return originalData.map(item => {
+                const { _uid, ...rest } = item;
+                return rest;
+            });
+        }
+
+        function restoreRoster(roster) {
+            if (!Array.isArray(roster)) return [];
+            return roster
+                .filter(item => item && typeof item === 'object' && !Array.isArray(item))
+                .map(item => {
+                    const { _uid, ...rest } = item;
+                    return { ...limitRosterColumns(rest), _uid: crypto.randomUUID() };
+                });
+        }
+
+        function loadLotteryPersistence() {
+            try {
+                const savedValue = localStorage.getItem(LOTTERY_STORAGE_KEY);
+                if (!savedValue) return null;
+
+                const saved = JSON.parse(savedValue);
+                if (!saved || typeof saved !== 'object') return null;
+
+                return {
+                    roster: Array.isArray(saved.roster) ? saved.roster : null,
+                    rounds: normalizeRounds(saved.rounds),
+                    settings: normalizeLotterySettings(saved.settings),
+                    theme: saved.theme === 'dark' || saved.theme === 'light' ? saved.theme : 'light',
+                    title: typeof saved.title === 'string' ? saved.title : null
+                };
+            } catch (error) {
+                console.warn('讀取 Lottery 設定失敗，將使用目前資料。', error);
+                return null;
+            }
+        }
+
+        function saveLotteryPersistence(options = {}) {
+            let roster = null;
+            let persistedRounds = null;
+
+            try {
+                const rosterData = getPersistedRoster();
+                if (rosterData.length > 0 && estimateStorageBytes(rosterData) <= ROSTER_STORAGE_LIMIT) {
+                    roster = rosterData;
+                } else if (rosterData.length > 0 && options.notifyRosterLimit && !rosterStorageLimitNoticeShown) {
+                    rosterStorageLimitNoticeShown = true;
+                    showToast('名單資料較大，本次可正常使用，但不會記憶到下次開啟。');
+                }
+            } catch (error) {
+                console.warn('準備 Lottery 名單儲存資料失敗。', error);
+            }
+
+            try {
+                const roundsData = normalizeRounds(rounds);
+                if (roundsData && estimateStorageBytes(roundsData) <= ROUNDS_STORAGE_LIMIT) {
+                    persistedRounds = roundsData;
+                } else if (roundsData && options.notifyRoundsLimit && !roundsStorageLimitNoticeShown) {
+                    roundsStorageLimitNoticeShown = true;
+                    showToast('獎項資料較大，本次可正常使用，但不會記憶到下次開啟。');
+                }
+            } catch (error) {
+                console.warn('準備 Lottery 獎項儲存資料失敗。', error);
+            }
+
+            const payload = {
+                roster,
+                rounds: persistedRounds,
+                settings: getLotterySettings(),
+                theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+                title: document.getElementById('main-title').value
+            };
+
+            try {
+                localStorage.setItem(LOTTERY_STORAGE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.warn('儲存 Lottery 設定失敗，改嘗試縮減資料。', error);
+                try {
+                    localStorage.setItem(LOTTERY_STORAGE_KEY, JSON.stringify({ ...payload, roster: null, rounds: null }));
+                } catch (fallbackError) {
+                    console.warn('儲存 Lottery 縮減設定也失敗。', fallbackError);
+                }
+            }
+        }
+
+        function syncExcludeToggleAppearance() {
+            const excludeToggle = document.getElementById('setting-exclude');
+            const toggleBg = document.getElementById('toggle-bg');
+            const toggleDot = document.getElementById('toggle-dot');
+            const toggleTextOn = document.getElementById('toggle-text-on');
+            const toggleTextOff = document.getElementById('toggle-text-off');
+            if (!excludeToggle || !toggleBg || !toggleDot || !toggleTextOn || !toggleTextOff) return;
+
+            const isEnabled = excludeToggle.checked;
+            toggleDot.classList.toggle('translate-x-8', isEnabled);
+            toggleBg.classList.toggle('bg-blue-500', isEnabled);
+            toggleBg.classList.toggle('dark:bg-blue-600', isEnabled);
+            toggleBg.classList.toggle('bg-slate-300', !isEnabled);
+            toggleBg.classList.toggle('dark:bg-slate-600', !isEnabled);
+            toggleTextOn.classList.toggle('hidden', !isEnabled);
+            toggleTextOff.classList.toggle('hidden', isEnabled);
+        }
 
         // --- 懸浮立體手風琴收折邏輯 ---
         function toggleSection(secId, isInit = false) {
@@ -536,7 +724,31 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            toggleSection(1, true); 
+            const saved = loadLotteryPersistence();
+            if (saved) {
+                rounds = saved.rounds || createDefaultRounds();
+                originalData = restoreRoster(saved.roster);
+                excludedUids.clear();
+
+                document.getElementById('setting-exclude').checked = saved.settings.excludeWinners;
+                document.getElementById('select-process').value = saved.settings.processEffect;
+                document.getElementById('select-celebration').value = saved.settings.celebrationEffect;
+                document.getElementById('setting-anim-once').checked = saved.settings.animOnce;
+                document.getElementById('setting-reverse-draw').checked = saved.settings.reverseDraw;
+                document.getElementById('setting-mute').checked = saved.settings.mute;
+                document.documentElement.classList.toggle('dark', saved.theme === 'dark');
+                document.getElementById('btn-theme').innerText = saved.theme === 'dark' ? '☀️' : '🌙';
+                if (saved.title !== null) document.getElementById('main-title').value = saved.title;
+
+                if (originalData.length > 0) {
+                    document.getElementById('file-status').innerHTML =
+                        `<span class="text-green-600 dark:text-green-400 font-bold">✅ 已載入上次名單 ${originalData.length} 筆，請確認本次出席名單</span>`;
+                    document.getElementById('preview-btn-container').classList.remove('hidden');
+                    lockInputMode('A');
+                    showPreviewModal();
+                }
+            }
+            syncExcludeToggleAppearance();
             renderRounds();
         });
 
@@ -763,26 +975,15 @@
         // --- 事件綁定 ---
         document.addEventListener('DOMContentLoaded', () => {
             const excludeToggle = document.getElementById('setting-exclude');
-            const toggleBg = document.getElementById('toggle-bg');
-            const toggleDot = document.getElementById('toggle-dot');
-            const toggleTextOn = document.getElementById('toggle-text-on');
-            const toggleTextOff = document.getElementById('toggle-text-off');
 
-            excludeToggle.addEventListener('change', (e) => {
-                if(e.target.checked) {
-                    toggleDot.classList.add('translate-x-8');
-                    toggleBg.classList.add('bg-blue-500', 'dark:bg-blue-600');
-                    toggleBg.classList.remove('bg-slate-300', 'dark:bg-slate-600');
-                    toggleTextOn.classList.remove('hidden');
-                    toggleTextOff.classList.add('hidden');
-                } else {
-                    toggleDot.classList.remove('translate-x-8');
-                    toggleBg.classList.remove('bg-blue-500', 'dark:bg-blue-600');
-                    toggleBg.classList.add('bg-slate-300', 'dark:bg-slate-600');
-                    toggleTextOn.classList.add('hidden');
-                    toggleTextOff.classList.remove('hidden');
-                }
+            excludeToggle.addEventListener('change', () => {
+                syncExcludeToggleAppearance();
+                saveLotteryPersistence();
             });
+            ['select-process', 'select-celebration', 'setting-anim-once', 'setting-reverse-draw', 'setting-mute'].forEach(id => {
+                document.getElementById(id).addEventListener('change', saveLotteryPersistence);
+            });
+            document.getElementById('main-title').addEventListener('change', saveLotteryPersistence);
         });
 
         function toggleTheme() {
@@ -790,6 +991,7 @@
             html.classList.toggle('dark');
             const btn = document.getElementById('btn-theme');
             btn.innerText = html.classList.contains('dark') ? '☀️' : '🌙';
+            saveLotteryPersistence();
         }
 
         // 單選頁籤切換邏輯
@@ -843,6 +1045,7 @@
             currentPool = [];
             excludedUids.clear();
             inputModeLocked = false;
+            saveLotteryPersistence();
             
             document.getElementById('file-upload').value = '';
             document.getElementById('quick-seat-count').value = '30';
@@ -864,23 +1067,28 @@
                 { "活動名稱": "", "獎項名稱": "頭獎 - Dyson 吹風機", "抽出名額": 2 },
                 { "活動名稱": "", "獎項名稱": "普獎 - 1000元超商禮券", "抽出名額": 10 }
             ];
-            const ws = XLSX.utils.json_to_sheet(wsData);
+            const ws = XLSXWriter.utils.json_to_sheet(wsData);
             ws['!cols'] = [{wch: 25}, {wch: 25}, {wch: 15}];
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "獎項設定");
-            XLSX.writeFile(wb, "抽籤獎項設定樣板.xlsx");
+            const wb = XLSXWriter.utils.book_new();
+            XLSXWriter.utils.book_append_sheet(wb, ws, "獎項設定");
+            XLSXWriter.writeFile(wb, "抽籤獎項設定樣板.xlsx");
         }
 
         function handleConfigUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
+            if (!file.name.toLowerCase().endsWith('.xlsx')) {
+                showToast('僅支援 Excel 檔案（.xlsx）。');
+                event.target.value = '';
+                return;
+            }
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
+                    const workbook = XLSXReader.read(data, {type: 'array'});
                     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    const jsonData = XLSXReader.utils.sheet_to_json(worksheet, { defval: "" });
                     
                     if (jsonData.length > 0) {
                         const hasRequiredColumns = jsonData.some(row => row['獎項名稱'] !== undefined && row['抽出名額'] !== undefined);
@@ -903,6 +1111,7 @@
                         });
                         if(rounds.length === 0) rounds = [{ id: 1, name: '頭獎', count: 1 }];
                         renderRounds();
+                        saveLotteryPersistence({ notifyRoundsLimit: true });
                         showToast('✅ 獎項設定檔匯入成功！', 'success');
                     }
                 } catch(err) {
@@ -962,16 +1171,21 @@
             const newId = rounds.length > 0 ? Math.max(...rounds.map(r => r.id)) + 1 : 1;
             rounds.push({ id: newId, name: `獎項 ${newId}`, count: 1 });
             renderRounds();
+            saveLotteryPersistence({ notifyRoundsLimit: true });
         }
 
         function removeRound(id) {
             rounds = rounds.filter(r => r.id !== id);
             renderRounds();
+            saveLotteryPersistence({ notifyRoundsLimit: true });
         }
 
         function updateRound(id, field, value) {
             const round = rounds.find(r => r.id === id);
-            if (round) round[field] = field === 'count' ? parseInt(value) || 1 : value;
+            if (round) {
+                round[field] = field === 'count' ? parseInt(value) || 1 : value;
+                saveLotteryPersistence({ notifyRoundsLimit: true });
+            }
         }
 
         function renderRounds() {
@@ -1010,6 +1224,7 @@
         // --- Step 2: 解鎖特效與音效 ---
         function saveSettingsAndLoadEffects() {
             const celeb = document.getElementById('select-celebration').value;
+            saveLotteryPersistence();
             audioManager.init(); 
 
             if (['confetti', 'fireworks', 'stars'].includes(celeb) && !confettiLoaded) {
@@ -1019,49 +1234,54 @@
                 document.head.appendChild(script);
             }
             
-            showToast('✅ 特效與音效已準備就緒！請匯入參與名單。', 'success');
-            toggleSection(3); 
+            showToast('✅ 抽籤設定已套用，準備進入會場！', 'success');
+            startLottery(); 
         }
 
         // --- Step 3: 匯入參與名單與預覽 ---
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
+            const fileName = file.name.toLowerCase();
+            if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.csv')) {
+                showToast('僅支援 Excel 或 CSV 檔案（.xlsx / .csv）。');
+                return;
+            }
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const arrayBuffer = e.target.result;
-                    let workbook;
-                    
-                    if (file.name.toLowerCase().endsWith('.csv')) {
-                        const uint8Array = new Uint8Array(arrayBuffer);
-                        let text = new TextDecoder('utf-8').decode(uint8Array);
-                        if (text.includes('')) {
-                            text = new TextDecoder('big5').decode(uint8Array);
-                        }
-                        workbook = XLSX.read(text, { type: 'string' });
-                    } else {
-                        workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                    }
+                    const workbook = XLSXReader.read(arrayBuffer, { type: 'array' });
                     
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-                    
+                    const rawData = XLSXReader.utils.sheet_to_json(worksheet, { defval: "" });
+                    const sourceColumnCount = rawData.reduce((max, row) => Math.max(max, Object.keys(row).length), 0);
+
                     originalData = rawData
+                        .map(limitRosterColumns)
                         .filter(row => Object.values(row).some(val => val !== "" && val !== null))
-                        .map(row => ({ ...row, _uid: crypto.randomUUID() })); // 發配 UUID
-                        
+                        .map(row => ({ ...row, _uid: crypto.randomUUID() })); // UUID 僅供本次抽籤使用
+
                     excludedUids.clear();
 
-                    document.getElementById('file-status').innerHTML = 
-                        `<span class="text-green-600 dark:text-green-400 font-bold">✅ 成功讀取 ${originalData.length} 筆資料</span>`;
-                    
-                    showToast(`成功匯入 ${originalData.length} 筆名單！`, 'success');
+                    const columnNotice = sourceColumnCount > MAX_ROSTER_COLUMNS
+                        ? `（原檔 ${sourceColumnCount} 欄，僅使用前 ${MAX_ROSTER_COLUMNS} 欄）`
+                        : `（${Math.min(sourceColumnCount, MAX_ROSTER_COLUMNS)} 欄）`;
+                    document.getElementById('file-status').innerHTML =
+                        `<span class="text-green-600 dark:text-green-400 font-bold">✅ 成功讀取 ${originalData.length} 筆資料 ${columnNotice}</span>`;
+
+                    showToast(
+                        sourceColumnCount > MAX_ROSTER_COLUMNS
+                            ? `成功匯入 ${originalData.length} 筆名單；僅讀取前 ${MAX_ROSTER_COLUMNS} 欄。`
+                            : `成功匯入 ${originalData.length} 筆名單！`,
+                        'success'
+                    );
                     document.getElementById('preview-btn-container').classList.remove('hidden');
-                    
+
                     lockInputMode('A');
+                    saveLotteryPersistence({ notifyRosterLimit: true });
 
                 } catch (err) {
                     showToast('讀取檔案失敗，請確定是正確的 Excel 或 CSV 檔案。');
@@ -1091,6 +1311,7 @@
             document.getElementById('preview-btn-container').classList.remove('hidden');
             
             lockInputMode('B');
+            saveLotteryPersistence({ notifyRosterLimit: true });
             showPreviewModal();
         }
 
@@ -1110,10 +1331,10 @@
                 const uid = item._uid;
                 const isExcluded = excludedUids.has(uid);
                 
-                const displayEntries = Object.entries(item).filter(([k]) => k !== '_uid');
-                const name = displayEntries[displayEntries.length - 1][1];
-                const subText = displayEntries.slice(0, -1).map(e => e[1]).join(' ');
-                const valuesString = displayEntries.map(e => e[1]).join(' | ');
+                const displayEntries = getDisplayEntries(item);
+                const name = String(displayEntries[displayEntries.length - 1]?.[1] ?? '');
+                const subText = displayEntries.slice(0, -1).map(([, value]) => String(value)).join(' ');
+                const valuesString = displayEntries.map(([, value]) => String(value)).join(' | ');
                 
                 let baseClasses = 'p-3 rounded-xl flex flex-col items-center justify-center min-h-[5rem] break-words border shadow-sm transition hover:shadow-md cursor-pointer select-none ';
                 
@@ -1184,6 +1405,7 @@
             document.getElementById('file-status').innerHTML = `<span class="text-green-600 dark:text-green-400 font-bold">${statusText}</span>`;
                 
             closePreviewModal();
+            toggleSection(1);
         }
 
         function closePreviewModal() {
@@ -1309,6 +1531,7 @@
             isRedrawState = false;
             inputModeLocked = false;
             clearCelebrations(); 
+            saveLotteryPersistence();
 
             document.getElementById('file-upload').value = '';
             document.getElementById('file-status').innerText = '尚未匯入或產生名單';
@@ -1544,7 +1767,7 @@
                         const div = document.createElement('div');
                         div.className = 'slot-item';
                         const randItem = currentPool.length > 0 ? currentPool[Math.floor(getCryptoRandom() * currentPool.length)] : winnerData;
-                        div.textContent = Object.entries(randItem).filter(([key]) => key !== '_uid').map(e => e[1]).join(' | ');
+                        div.textContent = formatParticipantText(randItem);
                         reel.appendChild(div);
                     }
                     
@@ -1552,13 +1775,13 @@
                     const fakeWinnerDiv = document.createElement('div');
                     fakeWinnerDiv.className = 'slot-item'; 
                     const fakeWinnerData = currentPool.length > 0 ? currentPool[Math.floor(getCryptoRandom() * currentPool.length)] : winnerData;
-                    fakeWinnerDiv.textContent = Object.entries(fakeWinnerData).filter(([key]) => key !== '_uid').map(e => e[1]).join(' | ');
+                    fakeWinnerDiv.textContent = formatParticipantText(fakeWinnerData);
                     reel.appendChild(fakeWinnerDiv);
 
                     // 真正的中獎者放在最後一格
                     const winnerDiv = document.createElement('div');
                     winnerDiv.className = 'slot-item'; 
-                    winnerDiv.textContent = Object.entries(winnerData).filter(([key]) => key !== '_uid').map(e => e[1]).join(' | ');
+                    winnerDiv.textContent = formatParticipantText(winnerData);
                     reel.appendChild(winnerDiv);
 
                     void reel.offsetWidth; 
@@ -1615,7 +1838,7 @@
 
                     const shuffleInterval = setInterval(() => {
                         const randomItem = currentPool.length > 0 ? currentPool[Math.floor(getCryptoRandom() * currentPool.length)] : winnerData;
-                        let displayText = Object.entries(randomItem).filter(([k]) => k !== '_uid').map(e => e[1]).join(' | ');
+                        let displayText = formatParticipantText(randomItem);
 
                         if (processType === 'matrix' && ticks < maxTicks - 2) {
                             let randomStr = '';
@@ -1641,12 +1864,12 @@
         // --- 建立得獎卡片 (防 XSS：全面使用 createElement 搭配 textContent) ---
         function appendWinnerCard(winner, isMany, container) {
             const card = document.createElement('div');
-            const displayEntries = Object.entries(winner).filter(([k]) => k !== '_uid');
+            const displayEntries = getDisplayEntries(winner);
 
             if (isMany) {
                 card.className = 'result-card animate-fade-in-up bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md border-t-4 border-amber-400 flex flex-col items-center text-center truncate w-full';
-                const mainText = displayEntries[displayEntries.length - 1][1]; 
-                const subText = displayEntries.slice(0, -1).map(e => e[1]).join(' '); 
+                const mainText = String(displayEntries[displayEntries.length - 1]?.[1] ?? ''); 
+                const subText = displayEntries.slice(0, -1).map(([, value]) => String(value)).join(' '); 
                 
                 const subDiv = document.createElement('div');
                 subDiv.className = 'text-xs text-stone-500 truncate w-full';
@@ -1768,19 +1991,19 @@
             
 
 
-            const workbook = XLSX.utils.book_new();
+            const workbook = XLSXWriter.utils.book_new();
             
-            XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(stripUid(originalData)), "1_原始名單");
+            XLSXWriter.utils.book_append_sheet(workbook, XLSXWriter.utils.json_to_sheet(stripUid(originalData)), "1_原始名單");
             
             rounds.forEach((round, index) => {
                 const roundWinners = winnersRecord.filter(record => record.roundName === round.name).map(record => record.data);
                 if (roundWinners.length > 0) {
                     let sheetName = `2.${index+1}_${round.name}`.substring(0, 31);
-                    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(stripUid(roundWinners)), sheetName);
+                    XLSXWriter.utils.book_append_sheet(workbook, XLSXWriter.utils.json_to_sheet(stripUid(roundWinners)), sheetName);
                 }
             });
 
-            if (currentPool.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(stripUid(currentPool)), "3_未中獎名單");
+            if (currentPool.length > 0) XLSXWriter.utils.book_append_sheet(workbook, XLSXWriter.utils.json_to_sheet(stripUid(currentPool)), "3_未中獎名單");
 
             const fullListWithStatus = originalData.map((originalItem) => {
                 const winRecord = winnersRecord.find(w => w.data._uid === originalItem._uid);
@@ -1794,17 +2017,17 @@
                 return { ...rest, "抽籤結果": winStatus };
             });
             
-            const ws4 = XLSX.utils.json_to_sheet(fullListWithStatus);
+            const ws4 = XLSXWriter.utils.json_to_sheet(fullListWithStatus);
             
             const palette = ["FFB3BA", "FFDFBA", "FFFFBA", "BAFFC9", "BAE1FF", "D0DAEE", "E2D2ED", "F6D6E7", "E0FFFF", "FFC0CB"];
             const roundColors = {};
             rounds.forEach((r, i) => { roundColors[r.name] = palette[i % palette.length]; });
 
-            const range = XLSX.utils.decode_range(ws4['!ref']);
+            const range = XLSXWriter.utils.decode_range(ws4['!ref']);
             let statusColIndex = -1;
             
             for(let C = range.s.c; C <= range.e.c; C++) {
-                const cellAddress = XLSX.utils.encode_cell({r: 0, c: C});
+                const cellAddress = XLSXWriter.utils.encode_cell({r: 0, c: C});
                 if(ws4[cellAddress] && ws4[cellAddress].v === "抽籤結果") {
                     statusColIndex = C;
                     break;
@@ -1813,7 +2036,7 @@
 
             if (statusColIndex !== -1) {
                 for(let R = 1; R <= range.e.r; R++) {
-                    const statusCellAddr = XLSX.utils.encode_cell({r: R, c: statusColIndex});
+                    const statusCellAddr = XLSXWriter.utils.encode_cell({r: R, c: statusColIndex});
                     const statusCell = ws4[statusCellAddr];
                     
                     if(statusCell && statusCell.v && statusCell.v !== "未中獎") {
@@ -1828,7 +2051,7 @@
                         }
                         
                         for(let C = range.s.c; C <= range.e.c; C++) {
-                            const cellAddress = XLSX.utils.encode_cell({r: R, c: C});
+                            const cellAddress = XLSXWriter.utils.encode_cell({r: R, c: C});
                             if(!ws4[cellAddress]) ws4[cellAddress] = { t: "s", v: "" }; 
                             ws4[cellAddress].s = {
                                 fill: { fgColor: { rgb: color } },
@@ -1839,9 +2062,9 @@
                 }
             }
             
-            XLSX.utils.book_append_sheet(workbook, ws4, "4_完整結果標示版");
+            XLSXWriter.utils.book_append_sheet(workbook, ws4, "4_完整結果標示版");
 
-            XLSX.writeFile(workbook, "本次抽籤總結報告.xlsx");
+            XLSXWriter.writeFile(workbook, "本次抽籤總結報告.xlsx");
             showToast('✅ 抽籤總表已成功下載 (含色彩標示)！', 'success');
         }
     </script>
