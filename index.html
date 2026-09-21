@@ -2,31 +2,94 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智慧教室整合入口網</title>
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-    
+
     <style>
+        :root {
+            --card-min-h: clamp(220px, 30vh, 360px);
+            --card-pad: clamp(1.25rem, 1.6vw, 2rem);
+            --card-gap: clamp(1rem, 1.8vw, 2rem);
+            --icon-box: clamp(3.5rem, 4.3vw, 4.5rem);
+            --icon-size: clamp(2rem, 2.7vw, 2.5rem);
+            --title-size: clamp(1.25rem, 1.5vw, 1.55rem);
+            --body-size: clamp(.92rem, 1vw, 1.05rem);
+            --decor-size: clamp(7rem, 8vw, 10rem);
+        }
+
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            background-color: #f8fafc; /* Slate-50: 乾淨的背景 */
+            background-color: #f8fafc;
         }
-        
-        /* 卡片懸停特效 */
+
         .tool-card {
             transition: all 0.3s ease;
+            min-height: var(--card-min-h);
         }
+
         .tool-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+                        0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        .tool-card-body { padding: var(--card-pad); }
+        .tool-icon-box { width: var(--icon-box); height: var(--icon-box); }
+        .tool-icon { font-size: var(--icon-size); }
+        .tool-title { font-size: var(--title-size); }
+        .tool-desc { font-size: var(--body-size); }
+        .tool-decor { font-size: var(--decor-size); }
+        .tool-grid { gap: var(--card-gap); }
+
+        /* 1920×1080 @ 150% 常見有效 CSS viewport 約 1280×720。
+           仍維持 2×2，但壓縮卡片與上下留白，讓第二排至少露出。 */
+        @media (min-width: 768px) and (max-height: 760px) {
+            :root {
+                --card-min-h: 218px;
+                --card-pad: 1.15rem;
+                --card-gap: .9rem;
+                --icon-box: 3.25rem;
+                --icon-size: 1.9rem;
+                --title-size: 1.18rem;
+                --body-size: .9rem;
+                --decor-size: 6.5rem;
+            }
+            main { padding-top: 1.25rem !important; padding-bottom: 1.5rem !important; }
+            .section-head { margin-bottom: 1rem !important; }
+            .tool-tags { margin-bottom: .65rem !important; }
+            .tool-desc { margin-bottom: .9rem !important; line-height: 1.55 !important; }
+            footer { padding-top: .75rem !important; padding-bottom: .75rem !important; }
+        }
+
+        /* 一般 1080p / 2K / 4K：隨可視高度放大，但設上限避免卡片過肥。 */
+        @media (min-width: 1280px) and (min-height: 900px) {
+            :root {
+                --card-min-h: clamp(285px, 31vh, 390px);
+                --card-pad: clamp(1.6rem, 1.8vw, 2.25rem);
+                --card-gap: clamp(1.5rem, 2vw, 2.25rem);
+                --icon-box: clamp(4rem, 4.5vw, 5rem);
+                --icon-size: clamp(2.25rem, 2.8vw, 2.8rem);
+                --title-size: clamp(1.4rem, 1.55vw, 1.75rem);
+                --body-size: clamp(1rem, 1vw, 1.12rem);
+                --decor-size: clamp(8rem, 8vw, 11rem);
+            }
+        }
+
+        @media (max-width: 767px) {
+            :root { --card-min-h: 0px; --card-pad: 1.25rem; --card-gap: 1rem; }
         }
     </style>
 </head>
+
 <body class="flex flex-col min-h-screen text-slate-800">
 
+    <!-- Header -->
     <nav class="bg-slate-800 text-white shadow-lg z-50">
-        <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center gap-3">
                     <div class="bg-indigo-500 p-2 rounded-lg">
@@ -34,134 +97,171 @@
                     </div>
                     <span class="font-bold text-xl tracking-wide">智慧教室整合入口網</span>
                 </div>
-                
+
                 <div class="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-full border border-slate-600">
-                    <i class="ph ph-user-circle text-xl text-slate-300"></i>
-                    <span class="text-sm font-medium text-slate-200">
-                        歡迎使用教學工具
-                    </span>
+                    <i class="ph ph-globe-hemisphere-west text-xl text-slate-300"></i>
+                    <span class="text-sm font-medium text-slate-200">公開教學工具</span>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="flex-grow max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
-        
-        <div class="mb-12">
-            <div class="flex items-center mb-6 border-b border-slate-200 pb-2">
+    <!-- Main -->
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
+
+        <div>
+            <div class="section-head flex items-center mb-6 border-b border-slate-200 pb-2">
                 <i class="ph ph-chalkboard-teacher text-2xl text-indigo-600 mr-2"></i>
                 <h2 class="text-xl font-bold text-slate-700">教室大屏工具</h2>
-                <span class="ml-3 text-sm text-slate-400 bg-slate-100 px-2 py-0.5 rounded">上課/考試用</span>
+                <span class="ml-3 text-sm text-slate-400 bg-slate-100 px-2 py-0.5 rounded">上課／考試用</span>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                
-                <a href="./Exam-Board/" 
-                   target="_blank" rel="noopener noreferrer"
-                   class="tool-card group block bg-white rounded-xl overflow-hidden border-2 border-transparent hover:border-blue-400 shadow-sm relative">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
-                        <i class="ph ph-monitor text-9xl text-blue-600"></i>
+            <!-- 2 x 2 -->
+            <div class="tool-grid grid grid-cols-1 md:grid-cols-2">
+
+                <!-- 工具 1：考試資訊看板 -->
+                <a href="https://richersu-teacher.github.io/teach-tools/Exam-Board/"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="tool-card group block bg-white rounded-2xl overflow-hidden border-2 border-transparent hover:border-blue-400 shadow-sm relative">
+                    <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition">
+                        <i class="ph ph-monitor tool-decor text-blue-600"></i>
                     </div>
-                    <div class="p-6 relative z-10 h-full flex flex-col">
-                        <div class="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center mb-4 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
-                            <i class="ph ph-presentation-chart text-3xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-blue-700">智慧教室資訊看板</h3>
-                        
-                        <div class="flex flex-wrap gap-1.5 mb-3">
-                            <span class="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full border border-blue-200">
-                                考程倒數
-                            </span>
-                            <span class="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full border border-indigo-200">
-                                支援雙科
-                            </span>
-                            <span class="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full border border-sky-200">
-                                語音提醒
-                            </span>
+
+                    <div class="tool-card-body relative z-10 h-full flex flex-col">
+                        <div class="tool-icon-box bg-blue-50 rounded-2xl flex items-center justify-center mb-4 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
+                            <i class="ph ph-presentation-chart tool-icon"></i>
                         </div>
 
-                        <p class="text-slate-500 text-sm leading-relaxed mb-4 flex-grow">
+                        <h3 class="tool-title font-bold text-slate-800 mb-3 group-hover:text-blue-700">
+                            智慧教室資訊看板
+                        </h3>
+
+                        <div class="tool-tags flex flex-wrap gap-2 mb-4">
+                            <span class="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full border border-blue-200">考程倒數</span>
+                            <span class="text-xs font-bold bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full border border-indigo-200">支援雙科</span>
+                            <span class="text-xs font-bold bg-sky-100 text-sky-800 px-2.5 py-1 rounded-full border border-sky-200">語音提醒</span>
+                        </div>
+
+                        <p class="tool-desc text-slate-500 leading-relaxed mb-6 flex-grow">
                             專為考試情境設計，支援雙科考程並列與折疊版面。具備視覺化紅綠燈倒數條與語音播報，讓學生隨時掌握剩餘時間。
                         </p>
-                        <div class="mt-auto flex items-center text-blue-600 font-bold text-sm">
-                            開啟看板 <i class="ph ph-arrow-right ml-1"></i>
+
+                        <div class="mt-auto flex items-center text-blue-600 font-bold text-[clamp(.95rem,1vw,1.05rem)]">
+                            開啟看板 <i class="ph ph-arrow-right ml-1.5"></i>
                         </div>
                     </div>
                 </a>
 
-                <a href="./timer/" 
-                   target="_blank" rel="noopener noreferrer"
-                   class="tool-card group block bg-white rounded-xl overflow-hidden border-2 border-transparent hover:border-emerald-400 shadow-sm relative">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
-                        <i class="ph ph-timer text-9xl text-emerald-600"></i>
+                <!-- 工具 2：多功能計時器 -->
+                <a href="https://richersu-teacher.github.io/teach-tools/timer/"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="tool-card group block bg-white rounded-2xl overflow-hidden border-2 border-transparent hover:border-emerald-400 shadow-sm relative">
+                    <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition">
+                        <i class="ph ph-timer tool-decor text-emerald-600"></i>
                     </div>
-                    <div class="p-6 relative z-10 h-full flex flex-col">
-                        <div class="w-14 h-14 bg-emerald-50 rounded-xl flex items-center justify-center mb-4 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition">
-                            <i class="ph ph-hourglass-high text-3xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-emerald-700">多功能計時器</h3>
-                        
-                        <div class="flex flex-wrap gap-1.5 mb-3">
-                            <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
-                                語音播報
-                            </span>
-                            <span class="text-[10px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full border border-teal-200">
-                                多媒體支援
-                            </span>
-                            <span class="text-[10px] font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full border border-green-200">
-                                活動測驗兩用
-                            </span>
+
+                    <div class="tool-card-body relative z-10 h-full flex flex-col">
+                        <div class="tool-icon-box bg-emerald-50 rounded-2xl flex items-center justify-center mb-4 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition">
+                            <i class="ph ph-hourglass-high tool-icon"></i>
                         </div>
 
-                        <p class="text-slate-500 text-sm leading-relaxed mb-4 flex-grow">
-                            適用於隨堂測驗或分組活動。支援插入圖片、聽力檔與影片作為題目，內建日間、粉色等多種主題，並提供視覺化倒數提醒。
+                        <h3 class="tool-title font-bold text-slate-800 mb-3 group-hover:text-emerald-700">
+                            多功能計時器
+                        </h3>
+
+                        <div class="tool-tags flex flex-wrap gap-2 mb-4">
+                            <span class="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200">語音播報</span>
+                            <span class="text-xs font-bold bg-teal-100 text-teal-800 px-2.5 py-1 rounded-full border border-teal-200">多媒體支援</span>
+                            <span class="text-xs font-bold bg-green-100 text-green-800 px-2.5 py-1 rounded-full border border-green-200">活動測驗兩用</span>
+                        </div>
+
+                        <p class="tool-desc text-slate-500 leading-relaxed mb-6 flex-grow">
+                            適用於隨堂測驗或分組活動。支援插入圖片、聽力檔與影片作為題目，並提供多種主題與視覺化倒數提醒。
                         </p>
-                        <div class="mt-auto flex items-center text-emerald-600 font-bold text-sm">
-                            開啟計時器 <i class="ph ph-arrow-right ml-1"></i>
+
+                        <div class="mt-auto flex items-center text-emerald-600 font-bold text-[clamp(.95rem,1vw,1.05rem)]">
+                            開啟計時器 <i class="ph ph-arrow-right ml-1.5"></i>
                         </div>
                     </div>
                 </a>
 
-                <a href="./lottery/" 
-                   target="_blank" rel="noopener noreferrer"
-                   class="tool-card group block bg-white rounded-xl overflow-hidden border-2 border-transparent hover:border-rose-400 shadow-sm relative">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
-                        <i class="ph ph-dice-five text-9xl text-rose-600"></i>
+                <!-- 工具 3：抽籤 -->
+                <a href="https://richersu-teacher.github.io/teach-tools/lottery/"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="tool-card group block bg-white rounded-2xl overflow-hidden border-2 border-transparent hover:border-rose-400 shadow-sm relative">
+                    <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition">
+                        <i class="ph ph-dice-five tool-decor text-rose-600"></i>
                     </div>
-                    <div class="p-6 relative z-10 h-full flex flex-col">
-                        <div class="w-14 h-14 bg-rose-50 rounded-xl flex items-center justify-center mb-4 text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition">
-                            <i class="ph ph-ticket text-3xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-2 group-hover:text-rose-700">驚喜抽籤神器</h3>
-                        
-                        <div class="flex flex-wrap gap-1.5 mb-3">
-                            <span class="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full border border-rose-200">
-                                多輪抽籤
-                            </span>
-                            <span class="text-[10px] font-bold bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full border border-pink-200">
-                                匯出紀錄表
-                            </span>
-                            <span class="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full border border-red-200">
-                                聲光特效
-                            </span>
+
+                    <div class="tool-card-body relative z-10 h-full flex flex-col">
+                        <div class="tool-icon-box bg-rose-50 rounded-2xl flex items-center justify-center mb-4 text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition">
+                            <i class="ph ph-ticket tool-icon"></i>
                         </div>
 
-                        <p class="text-slate-500 text-sm leading-relaxed mb-4 flex-grow">
-                            具備高度儀式感的隨機抽籤工具，能瞬間炒熱班級氣氛！支援多輪抽籤，並可一鍵下載各項中籤明細與總表，讓老師免去手寫紀錄的煩惱。
+                        <h3 class="tool-title font-bold text-slate-800 mb-3 group-hover:text-rose-700">
+                            驚喜抽籤神器
+                        </h3>
+
+                        <div class="tool-tags flex flex-wrap gap-2 mb-4">
+                            <span class="text-xs font-bold bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full border border-rose-200">多輪抽籤</span>
+                            <span class="text-xs font-bold bg-pink-100 text-pink-800 px-2.5 py-1 rounded-full border border-pink-200">匯出紀錄表</span>
+                            <span class="text-xs font-bold bg-red-100 text-red-800 px-2.5 py-1 rounded-full border border-red-200">聲光特效</span>
+                        </div>
+
+                        <p class="tool-desc text-slate-500 leading-relaxed mb-6 flex-grow">
+                            具備高度儀式感的隨機抽籤工具，支援多輪抽籤、名單管理與結果匯出，適合課堂點名與活動使用。
                         </p>
-                        <div class="mt-auto flex items-center text-rose-600 font-bold text-sm">
-                            開啟抽籤 <i class="ph ph-arrow-right ml-1"></i>
+
+                        <div class="mt-auto flex items-center text-rose-600 font-bold text-[clamp(.95rem,1vw,1.05rem)]">
+                            開啟抽籤 <i class="ph ph-arrow-right ml-1.5"></i>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- 工具 4：動態分組 -->
+                <a href="https://richersu-teacher.github.io/teach-tools/grouping/"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="tool-card group block bg-white rounded-2xl overflow-hidden border-2 border-transparent hover:border-cyan-400 shadow-sm relative">
+                    <div class="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition">
+                        <i class="ph ph-users-three tool-decor text-cyan-600"></i>
+                    </div>
+
+                    <div class="tool-card-body relative z-10 h-full flex flex-col">
+                        <div class="tool-icon-box bg-cyan-50 rounded-2xl flex items-center justify-center mb-4 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white transition">
+                            <i class="ph ph-users-three tool-icon"></i>
+                        </div>
+
+                        <h3 class="tool-title font-bold text-slate-800 mb-3 group-hover:text-cyan-700">
+                            動態分組小工具
+                        </h3>
+
+                        <div class="tool-tags flex flex-wrap gap-2 mb-4">
+                            <span class="text-xs font-bold bg-cyan-100 text-cyan-800 px-2.5 py-1 rounded-full border border-cyan-200">男女平衡</span>
+                            <span class="text-xs font-bold bg-sky-100 text-sky-800 px-2.5 py-1 rounded-full border border-sky-200">進階條件</span>
+                            <span class="text-xs font-bold bg-teal-100 text-teal-800 px-2.5 py-1 rounded-full border border-teal-200">Excel 匯入匯出</span>
+                        </div>
+
+                        <p class="tool-desc text-slate-500 leading-relaxed mb-6 flex-grow">
+                            快速建立班級分組，支援隨機、男女盡量平均、男女分開、指定組數或每組人數，也可設定隔離名單與逐組抽選。
+                        </p>
+
+                        <div class="mt-auto flex items-center text-cyan-600 font-bold text-[clamp(.95rem,1vw,1.05rem)]">
+                            開啟分組工具 <i class="ph ph-arrow-right ml-1.5"></i>
                         </div>
                     </div>
                 </a>
 
             </div>
         </div>
-
     </main>
 
+    <!-- Footer -->
     <footer class="bg-slate-50 border-t border-slate-200 py-6 mt-auto">
-        <div class="max-w-screen-2xl mx-auto px-4 text-center">
+        <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-slate-400 text-sm">
                 &copy; <span id="year"></span> 智慧教室教學輔助系統
             </p>
@@ -169,7 +269,6 @@
     </footer>
 
     <script>
-        // 自動填寫年份
         document.getElementById('year').textContent = new Date().getFullYear();
     </script>
 </body>
